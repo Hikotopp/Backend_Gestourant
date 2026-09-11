@@ -1,0 +1,1 @@
+package com.gestourant.order; import org.springframework.data.jpa.repository.JpaRepository; import java.time.*; import java.util.*; public interface InvoiceRepository extends JpaRepository<Invoice,Long>{ List<Invoice> findByIssuedAtBetween(LocalDateTime from,LocalDateTime to); }
