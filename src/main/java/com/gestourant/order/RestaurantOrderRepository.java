@@ -1,0 +1,1 @@
+package com.gestourant.order; import org.springframework.data.jpa.repository.JpaRepository; import java.util.*; public interface RestaurantOrderRepository extends JpaRepository<RestaurantOrder,Long>{ Optional<RestaurantOrder> findByTableIdAndStatus(Long tableId,OrderStatus status); }

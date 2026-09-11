@@ -1,0 +1,2 @@
+package com.gestourant.report; import com.gestourant.order.OrderService; import org.springframework.web.bind.annotation.*; import java.time.LocalDate;
+@RestController @RequestMapping("/api/reports") public class ReportController { private final OrderService orders; public ReportController(OrderService o){orders=o;} @GetMapping("/cash-close") public OrderService.CashClose cashClose(@RequestParam(required=false) LocalDate date){return orders.cashClose(date==null?LocalDate.now():date);} }
