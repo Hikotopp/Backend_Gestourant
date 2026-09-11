@@ -14,4 +14,6 @@ public class ApiExceptionHandler {
     ResponseEntity<Map<String, Object>> validation(MethodArgumentNotValidException ex) { Map<String, String> fields = new LinkedHashMap<>(); ex.getBindingResult().getFieldErrors().forEach(e -> fields.putIfAbsent(e.getField(), e.getDefaultMessage())); return ResponseEntity.badRequest().body(Map.of("message", "Datos inválidos", "errors", fields)); }
     @ExceptionHandler(ResponseStatusException.class)
     ResponseEntity<Map<String, String>> status(ResponseStatusException ex) { return ResponseEntity.status(ex.getStatusCode()).body(Map.of("message", ex.getReason())); }
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<Map<String, String>> invalidOperation(IllegalArgumentException ex) { return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage())); }
 }
