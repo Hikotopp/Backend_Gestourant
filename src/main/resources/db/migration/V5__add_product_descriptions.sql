@@ -1,0 +1,1 @@
+ALTER TABLE products ADD COLUMN description VARCHAR(500) NOT NULL DEFAULT '' AFTER name;

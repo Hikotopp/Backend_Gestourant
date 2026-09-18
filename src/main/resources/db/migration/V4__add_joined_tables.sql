@@ -1,0 +1,1 @@
+ALTER TABLE restaurant_tables ADD COLUMN joined_table_id BIGINT NULL;
