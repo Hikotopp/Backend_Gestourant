@@ -16,6 +16,7 @@ API de autenticación para Gestourant. Requiere Java 17 y MySQL 8.
 - `POST /api/orders/{id}/items`: agrega un producto al pedido (`productId`, `quantity`).
 - `POST /api/orders/{id}/close`: cierra la cuenta (`paymentMethod`: `EFECTIVO` o `DIGITAL`).
 - `GET /api/products`: consulta el inventario.
+- `POST /api/products` y `PUT /api/products/{id}`: administra productos con `name`, `description`, `category` (`PLATO`, `BEBIDA` u `OTRO`), `price`, `stock` y `active`.
 - `GET /api/reports/cash-close`: resumen de caja del día.
 
 El frontend incluye navegación funcional para Mesas, Pedidos, Inventario y Reportes. Para ejecutar ambos módulos, inicia el backend en el puerto `8081` y luego ejecuta `npm install` y `npm run dev` dentro de `Frontend_Gestourant`.
