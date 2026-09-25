@@ -11,5 +11,8 @@ public record RegisterRequest(
     @NotBlank(message = "El correo es obligatorio") @Email(message = "El correo electrónico no es válido") @Size(max = 150) String email,
     @NotBlank(message = "La contraseña es obligatoria") @Size(min = 10, max = 72, message = "La contraseña debe tener entre 10 y 72 caracteres") @Pattern(regexp = ".*\\d.*", message = "La contraseña debe incluir al menos un número") String password,
     Role role,
-    String adminCode
+    String adminCode,
+    @Size(max = 2048) String captchaToken,
+    @Size(max = 200) String website,
+    @jakarta.validation.constraints.NotNull @jakarta.validation.constraints.AssertTrue(message = "Debes autorizar el tratamiento de datos para crear una cuenta") Boolean privacyConsent
 ) { }
