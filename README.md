@@ -6,6 +6,14 @@ API de autenticación para Gestourant. Requiere Java 17 y MySQL 8.
 2. Configura, si es necesario, `DB_USERNAME`, `DB_PASSWORD` y `JWT_SECRET`.
 3. Ejecuta: `mvn spring-boot:run`
 
+## Despliegue seguro (producción)
+
+El backend emite JWT Bearer y los valida en las rutas protegidas. Para desplegar, termina TLS/HTTPS en el proveedor o proxy inverso y ejecuta Spring con el perfil `prod` (`SPRING_PROFILES_ACTIVE=prod`). Configura `JWT_SECRET` con un secreto aleatorio fuerte (mínimo 32 bytes) y `FRONTEND_URL` con el origen HTTPS público exacto del frontend. El perfil de producción no tiene valores por defecto para estos secretos/origen y habilita cookies `Secure` y `HttpOnly` para el estado temporal de OAuth. El proxy debe enviar los encabezados `X-Forwarded-Proto` y `X-Forwarded-For`.
+
+Sirve el frontend exclusivamente por HTTPS y configura `VITE_API_URL` con la URL HTTPS de la API o déjalo vacío si frontend y API comparten origen. El service worker solo se instala en HTTPS (localhost se permite para desarrollo). La PWA guarda únicamente el shell público y sus recursos estáticos; no guarda JWT, datos de cuenta, menú, mesas ni pedidos y no encola cambios offline.
+
+El repositorio contiene `railway.toml` para compilar con Nixpacks, escuchar en el puerto dinámico de Railway y comprobar el servicio. El frontend incluye una guía paso a paso para crear ambos servicios, conectar MySQL y configurar las referencias de variables.
+
 ## Endpoints
 
 - `POST /api/auth/register`: usuario, email y password. La contraseña debe tener mínimo 10 caracteres y al menos un número.
@@ -50,7 +58,7 @@ En producción usa la URL pública del backend y define `FRONTEND_URL` con la UR
 
 Cloudflare Turnstile se activa configurando juntas `TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY`. Si solo se configura una, el backend no inicia. Añade el dominio del frontend en la configuración de Turnstile. El servidor valida cada token de CAPTCHA; el honeypot de los formularios se valida también en el backend.
 
-La creación de cuentas locales y el alta OAuth requieren autorización explícita para el tratamiento de datos; se guarda la fecha/hora de autorización en la cuenta. OAuth permite que una identidad previamente vinculada inicie sesión directamente; si es una identidad nueva, primero se autentica con el proveedor y después se solicita el consentimiento antes de crear la cuenta. El código de registro pendiente vence a los cinco minutos y solo se puede usar una vez. La sesión de la interfaz se bloquea tras 2 minutos y 30 segundos sin actividad y se cierra tras 5 minutos desde la última actividad. La política de datos publicada en `Frontend_Gestourant/public/politica-tratamiento.html` es un borrador: completa los datos del responsable y sométela a revisión jurídica antes de usarla con clientes.
+La creación de cuentas locales y el alta OAuth requieren autorización explícita para el tratamiento de datos; se guarda la fecha/hora de autorización en la cuenta. OAuth permite que una identidad previamente vinculada inicie sesión directamente; si es una identidad nueva, primero se autentica con el proveedor y después se solicita el consentimiento antes de crear la cuenta. El código de registro pendiente vence a los cinco minutos y solo se puede usar una vez. La sesión de la interfaz se bloquea tras 2 minutos sin actividad, muestra un contador de 3 minutos y se cierra al agotarse (5 minutos en total desde la última actividad). La política de datos publicada en `Frontend_Gestourant/public/politica-tratamiento.html` es un borrador: completa los datos del responsable y sométela a revisión jurídica antes de usarla con clientes.
 
 ## Arquitectura y logs
 
