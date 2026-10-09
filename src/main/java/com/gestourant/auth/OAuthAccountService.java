@@ -20,15 +20,15 @@ public class OAuthAccountService {
     private final UserRepository users;
     private final OAuthIdentityRepository identities;
     private final PasswordEncoder encoder;
-    private final JwtService jwt;
+    private final ActiveSessionService sessions;
     private final AuditService audit;
     private final SecureRandom random = new SecureRandom();
 
-    public OAuthAccountService(UserRepository users, OAuthIdentityRepository identities, PasswordEncoder encoder, JwtService jwt, AuditService audit) {
+    public OAuthAccountService(UserRepository users, OAuthIdentityRepository identities, PasswordEncoder encoder, ActiveSessionService sessions, AuditService audit) {
         this.users = users;
         this.identities = identities;
         this.encoder = encoder;
-        this.jwt = jwt;
+        this.sessions = sessions;
         this.audit = audit;
     }
 
@@ -88,6 +88,6 @@ public class OAuthAccountService {
     }
 
     private AuthResponse responseFor(User user) {
-        return new AuthResponse(jwt.generate(user), "Bearer", user.getId(), user.getUsername(), user.getEmail(), user.getRole());
+        return sessions.open(user);
     }
 }

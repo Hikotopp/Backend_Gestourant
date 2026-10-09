@@ -31,7 +31,7 @@ public class SecurityConfig {
         http.csrf(AbstractHttpConfigurer::disable)
             .cors(org.springframework.security.config.Customizer.withDefaults())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-            .authorizeHttpRequests(a -> a.requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/config", "/api/auth/oauth/exchange", "/api/auth/oauth/register", "/api/guest/**", "/error", "/oauth2/**", "/login/oauth2/**").permitAll().requestMatchers("/api/audit-logs/**").hasRole("ADMINISTRADOR").anyRequest().authenticated())
+            .authorizeHttpRequests(a -> a.requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/config", "/api/auth/oauth/exchange", "/api/auth/oauth/register", "/api/guest/**", "/error", "/oauth2/**", "/login/oauth2/**").permitAll().requestMatchers("/api/audit-logs/**", "/api/admin/backups/**").hasRole("ADMINISTRADOR").anyRequest().authenticated())
             .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(audit, JwtAuthenticationFilter.class);
         http.oauth2Login(oauth -> oauth

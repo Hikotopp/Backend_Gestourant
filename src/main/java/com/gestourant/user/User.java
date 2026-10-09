@@ -14,8 +14,14 @@ public class User {
     @Column(nullable = false, length = 20) private Role role;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     @Column(name = "privacy_consent_at") private LocalDateTime privacyConsentAt;
+    @Column(name = "active_session_id", length = 36) private String activeSessionId;
+    @Column(name = "active_session_expires_at") private LocalDateTime activeSessionExpiresAt;
     protected User() { }
     public User(String username, String email, String passwordHash, Role role) { this(username, email, passwordHash, role, null); }
     public User(String username, String email, String passwordHash, Role role, LocalDateTime privacyConsentAt) { this.username = username; this.email = email; this.passwordHash = passwordHash; this.role = role; this.createdAt = LocalDateTime.now(); this.privacyConsentAt = privacyConsentAt; }
     public Long getId() { return id; } public String getUsername() { return username; } public String getEmail() { return email; } public String getPasswordHash() { return passwordHash; } public Role getRole() { return role; } public LocalDateTime getPrivacyConsentAt() { return privacyConsentAt; }
+    public String getActiveSessionId() { return activeSessionId; }
+    public LocalDateTime getActiveSessionExpiresAt() { return activeSessionExpiresAt; }
+    public void setActiveSession(String sessionId, LocalDateTime expiresAt) { this.activeSessionId = sessionId; this.activeSessionExpiresAt = expiresAt; }
+    public void clearActiveSession() { this.activeSessionId = null; this.activeSessionExpiresAt = null; }
 }

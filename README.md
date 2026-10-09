@@ -83,3 +83,21 @@ Ejemplo de registro:
 ```json
 {"username":"maria.lopez","email":"maria@ejemplo.com","password":"ClaveSegura1"}
 ```
+
+## Backups de base de datos
+
+El administrador puede crear, descargar y restaurar copias desde **Copias de seguridad**. Los respaldos incluyen el esquema y los datos de MySQL; el historial se consulta directamente del almacenamiento S3 y no desaparece al restaurar una copia anterior. La restauración reemplaza los datos actuales y exige escribir `RESTAURAR`.
+
+Configura en el backend:
+
+- `BACKUP_S3_BUCKET`: bucket dedicado a los respaldos.
+- `BACKUP_S3_REGION`: región S3 (`us-east-1` por defecto; Cloudflare R2 suele usar `auto`).
+- `BACKUP_S3_ENDPOINT`: endpoint opcional para R2 o MinIO.
+- `BACKUP_S3_PREFIX`: prefijo de objetos (`gestourant/backups` por defecto).
+- Credenciales mediante la cadena estándar de AWS SDK (por ejemplo `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`, o un rol de ejecución). El rol necesita `s3:ListBucket`, `s3:GetObject` y `s3:PutObject` sobre el bucket/prefijo.
+
+El backend también necesita los clientes de MySQL `mysqldump` y `mysql` en `PATH`. Si se instalaron en otra ubicación, define `MYSQLDUMP_COMMAND` y `MYSQL_COMMAND`. En Railway/Nixpacks, instala un cliente MySQL compatible en el servicio backend y configura el bucket/credenciales como variables privadas del servicio. Sin bucket configurado, las operaciones de backups responden con error explícito y no aparentan completarse.
+
+## Sesión única
+
+Cada cuenta admite una sola sesión autenticada a la vez, también para acceso con Google/Microsoft. Un nuevo inicio se rechaza mientras el token anterior esté activo; cerrar sesión lo invalida inmediatamente. Si se cierra el navegador sin cerrar sesión, la sesión anterior permanece bloqueada hasta que expire el token (`JWT_EXPIRATION`, 24 horas por defecto).
