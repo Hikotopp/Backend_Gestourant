@@ -28,6 +28,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Claims claims = jwt.parse(header.substring(7));
                 users.findByEmailIgnoreCase(claims.getSubject()).ifPresent(account -> {
+                    if (claims.getId() == null || !claims.getId().equals(account.getActiveSessionId())) return;
                     User principal = new User(account.getEmail(), account.getPasswordHash(), List.of(new SimpleGrantedAuthority("ROLE_" + account.getRole().name())));
                     UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

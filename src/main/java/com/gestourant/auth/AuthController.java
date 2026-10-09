@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthService service;
+    private final JwtService jwt;
     private final OAuthAccountService oauthAccountService;
     private final UserRepository users;
     private final TurnstileService turnstile;
@@ -20,7 +21,7 @@ public class AuthController {
     private final PendingOAuthRegistrationStore pendingOAuthRegistrations;
     private final ObjectProvider<ClientRegistrationRepository> registrations;
     private final String turnstileSiteKey;
-    public AuthController(AuthService service, OAuthAccountService oauthAccountService, UserRepository users, TurnstileService turnstile, OAuthCodeStore oauthCodes, PendingOAuthRegistrationStore pendingOAuthRegistrations, ObjectProvider<ClientRegistrationRepository> registrations, @org.springframework.beans.factory.annotation.Value("${app.turnstile.site-key:}") String turnstileSiteKey) { this.service = service; this.oauthAccountService = oauthAccountService; this.users = users; this.turnstile = turnstile; this.oauthCodes = oauthCodes; this.pendingOAuthRegistrations = pendingOAuthRegistrations; this.registrations = registrations; this.turnstileSiteKey = turnstileSiteKey; }
+    public AuthController(AuthService service, JwtService jwt, OAuthAccountService oauthAccountService, UserRepository users, TurnstileService turnstile, OAuthCodeStore oauthCodes, PendingOAuthRegistrationStore pendingOAuthRegistrations, ObjectProvider<ClientRegistrationRepository> registrations, @org.springframework.beans.factory.annotation.Value("${app.turnstile.site-key:}") String turnstileSiteKey) { this.service = service; this.jwt = jwt; this.oauthAccountService = oauthAccountService; this.users = users; this.turnstile = turnstile; this.oauthCodes = oauthCodes; this.pendingOAuthRegistrations = pendingOAuthRegistrations; this.registrations = registrations; this.turnstileSiteKey = turnstileSiteKey; }
     @PostMapping("/register") @ResponseStatus(HttpStatus.CREATED) public AuthResponse register(@Valid @RequestBody RegisterRequest request) { return service.register(request); }
     @PostMapping("/login") public AuthResponse login(@Valid @RequestBody LoginRequest request) { return service.login(request); }
     @GetMapping("/config") public AuthConfig config() {
@@ -37,7 +38,12 @@ public class AuthController {
         if (profile == null) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "El registro expiró. Inicia de nuevo con Google o Microsoft.");
         return oauthAccountService.registerWithOAuth(profile.provider(), profile.subject(), profile.email(), profile.displayName(), request.privacyConsent());
     }
-    @PostMapping("/logout") @ResponseStatus(HttpStatus.NO_CONTENT) public void logout(@AuthenticationPrincipal UserDetails principal, jakarta.servlet.http.HttpServletRequest request) { users.findByEmailIgnoreCase(principal.getUsername()).ifPresent(user -> service.logout(user, request.getRemoteAddr())); }
+    @PostMapping("/logout") @ResponseStatus(HttpStatus.NO_CONTENT) public void logout(@AuthenticationPrincipal UserDetails principal, @RequestHeader(value = "Authorization", required = false) String authorization, jakarta.servlet.http.HttpServletRequest request) {
+        if (principal == null) return;
+        String sessionId = authorization != null && authorization.startsWith("Bearer ")
+            ? jwt.parse(authorization.substring(7)).getId() : null;
+        users.findByEmailIgnoreCase(principal.getUsername()).ifPresent(user -> service.logout(user, sessionId, request.getRemoteAddr()));
+    }
     private boolean hasRegistration(ClientRegistrationRepository repository, String id) { return repository != null && repository.findByRegistrationId(id) != null; }
     public record AuthConfig(boolean captchaEnabled, String captchaSiteKey, boolean googleEnabled, boolean microsoftEnabled) {}
     public record OAuthExchangeRequest(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 100) String code) {}
