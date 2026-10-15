@@ -63,14 +63,17 @@ public class DatabaseBackupController {
     }
 
     @PostMapping("/{id}/restore")
-    public void restore(@PathVariable String id, @Valid @RequestBody RestoreRequest request,
-                        @AuthenticationPrincipal UserDetails principal) {
+    public DatabaseBackupService.RestoreResult restore(
+        @PathVariable String id,
+        @Valid @RequestBody RestoreRequest request,
+        @AuthenticationPrincipal UserDetails principal
+    ) {
         if (!"RESTAURAR".equals(request.confirmation())) {
             throw new org.springframework.web.server.ResponseStatusException(
                 org.springframework.http.HttpStatus.BAD_REQUEST,
                 "Escribe RESTAURAR para confirmar la operación.");
         }
-        backups.restore(id, currentUser(principal));
+        return backups.restore(id, currentUser(principal));
     }
 
     private User currentUser(UserDetails principal) {

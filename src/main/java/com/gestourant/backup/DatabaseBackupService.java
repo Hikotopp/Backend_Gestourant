@@ -116,7 +116,7 @@ public class DatabaseBackupService {
         return requireStorage().getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey(validateId(id))).build());
     }
 
-    public void restore(String id, User user) {
+    public RestoreResult restore(String id, User user) {
         S3Client s3 = requireStorage();
         Path dump = null;
         Path errors = null;
@@ -125,11 +125,16 @@ public class DatabaseBackupService {
             errors = Files.createTempFile("gestourant-restore-", ".err");
             s3.getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey(validateId(id))).build(),
                 ResponseTransformer.toFile(dump));
+            DatabaseBackup safetyBackup = create(user);
+            audit.log(user, "SAFETY_BACKUP", "database-backup",
+                "Respaldo previo obligatorio antes de restaurar " + id + ": " + safetyBackup.id(), null);
             ProcessBuilder process = mysqlProcess(mysqlCommand, false);
             process.redirectInput(dump.toFile());
             process.redirectError(errors.toFile());
             requireSuccessfulProcess(process, "No se pudo restaurar el respaldo de MySQL.");
-            audit.log(user, "RESTORE", "database-backup", "Base de datos restaurada desde: " + id, null);
+            audit.log(user, "RESTORE", "database-backup",
+                "Base de datos restaurada desde: " + id + "; respaldo previo: " + safetyBackup.id(), null);
+            return new RestoreResult(id, safetyBackup.id(), safetyBackup.fileName(), safetyBackup.createdAt());
         } catch (IOException ex) {
             log.error("Database restore operation failed.", ex);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
@@ -220,4 +225,7 @@ public class DatabaseBackupService {
     }
 
     private record DatabaseTarget(String host, int port, String database) { }
+
+    public record RestoreResult(String restoredBackupId, String safetyBackupId,
+                                String safetyBackupFileName, Instant safetyBackupCreatedAt) { }
 }

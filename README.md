@@ -19,6 +19,10 @@ El repositorio contiene `railway.toml` para compilar con Nixpacks, escuchar en e
 - `POST /api/auth/register`: usuario, email y password. La contraseña debe tener mínimo 10 caracteres y al menos un número.
 - `POST /api/auth/login`: identifier (correo o usuario) y password.
 - `GET /api/auth/config`: indica si Turnstile y proveedores OAuth están configurados.
+- `GET /api/auth/session`: consulta el estado de la sesión y el tiempo restante para bloqueo o cierre.
+- `POST /api/auth/activity`: registra actividad explícita de la sesión autenticada.
+- `POST /api/auth/unlock`: valida la contraseña y reanuda la misma sesión bloqueada sin emitir otro token.
+- `GET /api/audit-logs?page=0&size=50`: consulta los eventos de auditoría paginados (solo administrador; máximo 100 por página).
 - `POST /api/auth/oauth/exchange`: canjea un código de inicio OAuth de un solo uso y 60 segundos por un JWT.
 - `POST /api/auth/oauth/register`: completa el alta OAuth usando el código temporal recibido después de autenticar con el proveedor y registra el consentimiento expreso antes de crear la cuenta.
 - `GET /api/tables`: consulta las mesas de la sala.
@@ -58,11 +62,11 @@ En producción usa la URL pública del backend y define `FRONTEND_URL` con la UR
 
 Cloudflare Turnstile se activa configurando juntas `TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY`. Si solo se configura una, el backend no inicia. Añade el dominio del frontend en la configuración de Turnstile. El servidor valida cada token de CAPTCHA; el honeypot de los formularios se valida también en el backend.
 
-La creación de cuentas locales y el alta OAuth requieren autorización explícita para el tratamiento de datos; se guarda la fecha/hora de autorización en la cuenta. OAuth permite que una identidad previamente vinculada inicie sesión directamente; si es una identidad nueva, primero se autentica con el proveedor y después se solicita el consentimiento antes de crear la cuenta. El código de registro pendiente vence a los cinco minutos y solo se puede usar una vez. La sesión de la interfaz se bloquea tras 2 minutos sin actividad, muestra un contador de 3 minutos y se cierra al agotarse (5 minutos en total desde la última actividad). La política de datos publicada en `Frontend_Gestourant/public/politica-tratamiento.html` es un borrador: completa los datos del responsable y sométela a revisión jurídica antes de usarla con clientes.
+La creación de cuentas locales y el alta OAuth requieren autorización explícita para el tratamiento de datos; se guarda la fecha/hora de autorización en la cuenta. OAuth permite que una identidad previamente vinculada inicie sesión directamente; si es una identidad nueva, primero se autentica con el proveedor y después se solicita el consentimiento antes de crear la cuenta. El código de registro pendiente vence a los cinco minutos y solo se puede usar una vez. La sesión se bloquea a los 2 minutos y 30 segundos de inactividad, solicita validar nuevamente la contraseña para reanudar la misma sesión y se cierra en el backend al completar 5 minutos continuos sin actividad. La política de datos publicada en `Frontend_Gestourant/public/politica-tratamiento.html` es un borrador: completa los datos del responsable y sométela a revisión jurídica antes de usarla con clientes.
 
 ## Arquitectura y logs
 
-El backend usa puertos y adaptadores en los límites de auditoría: `audit/port` contiene los contratos y `audit/adapter` contiene la implementación JPA. Los servicios de aplicación no necesitan conocer cómo se persisten los eventos. Los logs técnicos se escriben en consola y en `logs/gestourant.log`; puedes cambiar la ruta con `LOG_FILE`.
+El backend usa puertos y adaptadores en los límites de auditoría: `audit/port` contiene los contratos y `audit/adapter` contiene la implementación JPA. La tabla `audit_logs` conserva usuario, acción, recurso, detalle, dirección IP y fecha/hora; el endpoint administrativo permite revisar los eventos más recientes con paginación. Se registran accesos, cierres, reemplazos y bloqueos de sesión, respaldos/restauraciones y operaciones de escritura realizadas por usuarios autenticados. Los logs técnicos se escriben en consola y en `logs/gestourant.log`; puedes cambiar la ruta con `LOG_FILE`.
 
 El frontend separa el adaptador HTTP y el logger en `src/infrastructure`. Las vistas llaman al cliente de aplicación y no gestionan tokens ni respuestas HTTP directamente. En desarrollo, los eventos de red, autenticación y errores aparecen en la consola del navegador.
 
@@ -86,7 +90,7 @@ Ejemplo de registro:
 
 ## Backups de base de datos
 
-El administrador puede crear, descargar y restaurar copias desde **Copias de seguridad**. Los respaldos incluyen el esquema y los datos de MySQL; el historial se consulta directamente del almacenamiento S3 y no desaparece al restaurar una copia anterior. La restauración reemplaza los datos actuales y exige escribir `RESTAURAR`.
+El administrador puede crear, descargar y restaurar copias desde **Copias de seguridad**. Los respaldos incluyen el esquema y los datos de MySQL; el historial se consulta directamente del almacenamiento S3 y no desaparece al restaurar una copia anterior. No se eliminan copias automáticamente: la retención se administra en el almacenamiento S3. La restauración reemplaza los datos actuales, exige escribir `RESTAURAR` y crea obligatoriamente un respaldo de seguridad de la base de datos actual antes de aplicar la copia seleccionada. Si no es posible crear ese respaldo previo, la restauración se cancela.
 
 Configura en el backend:
 
@@ -100,4 +104,4 @@ El backend también necesita los clientes de MySQL `mysqldump` y `mysql` en `PAT
 
 ## Sesión única
 
-Cada cuenta admite una sola sesión autenticada a la vez, también para acceso con Google/Microsoft. Un nuevo inicio se rechaza mientras el token anterior esté activo; cerrar sesión lo invalida inmediatamente. Si se cierra el navegador sin cerrar sesión, la sesión anterior permanece bloqueada hasta que expire el token (`JWT_EXPIRATION`, 24 horas por defecto).
+Cada cuenta admite una sola sesión autenticada a la vez, también para acceso con Google/Microsoft. Un nuevo inicio invalida la sesión anterior; cerrar sesión o alcanzar cinco minutos de inactividad la invalida inmediatamente.
