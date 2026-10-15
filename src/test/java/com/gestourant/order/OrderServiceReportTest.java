@@ -1,6 +1,6 @@
 package com.gestourant.order;
 
-import com.gestourant.catalog.ProductRepository;
+import com.gestourant.catalog.application.port.out.ProductCatalogPort;
 import com.gestourant.restaurant.RestaurantTableRepository;
 import com.gestourant.user.User;
 import com.gestourant.user.UserRepository;
@@ -23,7 +23,7 @@ import static org.mockito.Mockito.when;
 class OrderServiceReportTest {
     private final RestaurantTableRepository tables = mock(RestaurantTableRepository.class);
     private final RestaurantOrderRepository orders = mock(RestaurantOrderRepository.class);
-    private final ProductRepository products = mock(ProductRepository.class);
+    private final ProductCatalogPort products = mock(ProductCatalogPort.class);
     private final InvoiceRepository invoices = mock(InvoiceRepository.class);
     private final UserRepository users = mock(UserRepository.class);
     private final GuestOrderRequestRepository guestRequests = mock(GuestOrderRequestRepository.class);

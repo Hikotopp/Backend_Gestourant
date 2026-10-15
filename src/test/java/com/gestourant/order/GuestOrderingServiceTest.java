@@ -1,6 +1,6 @@
 package com.gestourant.order;
 
-import com.gestourant.catalog.ProductRepository;
+import com.gestourant.catalog.application.port.out.ProductCatalogPort;
 import com.gestourant.restaurant.RestaurantTable;
 import com.gestourant.restaurant.RestaurantTableRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,7 +22,7 @@ import static org.mockito.Mockito.when;
 class GuestOrderingServiceTest {
     private static final String TABLE_TOKEN = "123e4567-e89b-12d3-a456-426614174000";
     private final RestaurantTableRepository tables = mock(RestaurantTableRepository.class);
-    private final ProductRepository products = mock(ProductRepository.class);
+    private final ProductCatalogPort products = mock(ProductCatalogPort.class);
     private final GuestOrderRequestRepository requests = mock(GuestOrderRequestRepository.class);
     private final RestaurantOrderRepository orders = mock(RestaurantOrderRepository.class);
     private final OrderService orderService = mock(OrderService.class);
@@ -56,7 +56,7 @@ class GuestOrderingServiceTest {
 
     @Test
     void publicMenuViewContainsNoSharedAccountOrTableOrderHistory() {
-        when(products.findByActiveTrueAndStockGreaterThanOrderByCategoryAscNameAsc(0)).thenReturn(List.of());
+        when(products.findAvailable()).thenReturn(List.of());
 
         GuestOrderingService.GuestTableView view = service.getTable(TABLE_TOKEN);
 

@@ -1,7 +1,7 @@
 package com.gestourant.order;
 
 import com.gestourant.catalog.Product;
-import com.gestourant.catalog.ProductRepository;
+import com.gestourant.catalog.application.port.out.ProductCatalogPort;
 import com.gestourant.restaurant.RestaurantTable;
 import com.gestourant.restaurant.RestaurantTableRepository;
 import com.gestourant.restaurant.TableStatus;
@@ -19,14 +19,14 @@ import java.util.regex.Pattern;
 public class GuestOrderingService {
     private static final Pattern GUEST_SESSION_TOKEN = Pattern.compile("^[a-fA-F0-9]{64}$");
     private final RestaurantTableRepository tables;
-    private final ProductRepository products;
+    private final ProductCatalogPort products;
     private final GuestOrderRequestRepository requests;
     private final RestaurantOrderRepository orders;
     private final OrderService orderService;
 
     public GuestOrderingService(
         RestaurantTableRepository tables,
-        ProductRepository products,
+        ProductCatalogPort products,
         GuestOrderRequestRepository requests,
         RestaurantOrderRepository orders,
         OrderService orderService
@@ -40,7 +40,7 @@ public class GuestOrderingService {
 
     public GuestTableView getTable(String token) {
         RestaurantTable table = getTableByToken(token);
-        List<GuestProductView> menu = products.findByActiveTrueAndStockGreaterThanOrderByCategoryAscNameAsc(0)
+        List<GuestProductView> menu = products.findAvailable()
             .stream()
             .map(product -> new GuestProductView(
                 product.getId(), product.getName(), product.getDescription(), product.getCategory(),
