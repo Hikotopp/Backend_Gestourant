@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import io.jsonwebtoken.JwtException;
 import com.gestourant.user.UserRepository;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -24,6 +25,34 @@ public class AuthController {
     public AuthController(AuthService service, JwtService jwt, OAuthAccountService oauthAccountService, UserRepository users, TurnstileService turnstile, OAuthCodeStore oauthCodes, PendingOAuthRegistrationStore pendingOAuthRegistrations, ObjectProvider<ClientRegistrationRepository> registrations, @org.springframework.beans.factory.annotation.Value("${app.turnstile.site-key:}") String turnstileSiteKey) { this.service = service; this.jwt = jwt; this.oauthAccountService = oauthAccountService; this.users = users; this.turnstile = turnstile; this.oauthCodes = oauthCodes; this.pendingOAuthRegistrations = pendingOAuthRegistrations; this.registrations = registrations; this.turnstileSiteKey = turnstileSiteKey; }
     @PostMapping("/register") @ResponseStatus(HttpStatus.CREATED) public AuthResponse register(@Valid @RequestBody RegisterRequest request) { return service.register(request); }
     @PostMapping("/login") public AuthResponse login(@Valid @RequestBody LoginRequest request) { return service.login(request); }
+    @GetMapping("/session") public ActiveSessionService.SessionStatus sessionStatus(
+        @AuthenticationPrincipal UserDetails principal,
+        @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        if (principal != null) return service.sessionStatus(principal.getUsername(), sessionId(authorization));
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return new ActiveSessionService.SessionStatus(false, false, 0, 0, "SESSION_EXPIRED");
+        }
+        try {
+            io.jsonwebtoken.Claims claims = jwt.parse(authorization.substring(7));
+            return service.sessionStatus(claims.getSubject(), claims.getId());
+        } catch (JwtException exception) {
+            return new ActiveSessionService.SessionStatus(false, false, 0, 0, "SESSION_EXPIRED");
+        }
+    }
+    @PostMapping("/activity") public ActiveSessionService.SessionStatus recordActivity(
+        @AuthenticationPrincipal UserDetails principal,
+        @RequestHeader(value = "Authorization", required = false) String authorization
+    ) {
+        return service.recordActivity(principal.getUsername(), sessionId(authorization));
+    }
+    @PostMapping("/unlock") public ActiveSessionService.SessionStatus unlock(
+        @AuthenticationPrincipal UserDetails principal,
+        @RequestHeader(value = "Authorization", required = false) String authorization,
+        @Valid @RequestBody UnlockRequest request
+    ) {
+        return service.unlock(principal.getUsername(), sessionId(authorization), request.password(), request.captchaToken());
+    }
     @GetMapping("/config") public AuthConfig config() {
         ClientRegistrationRepository repository = registrations.getIfAvailable();
         return new AuthConfig(turnstile.isEnabled(), turnstile.isEnabled() ? turnstileSiteKey : "", hasRegistration(repository, "google"), hasRegistration(repository, "microsoft"));
@@ -40,12 +69,25 @@ public class AuthController {
     }
     @PostMapping("/logout") @ResponseStatus(HttpStatus.NO_CONTENT) public void logout(@AuthenticationPrincipal UserDetails principal, @RequestHeader(value = "Authorization", required = false) String authorization, jakarta.servlet.http.HttpServletRequest request) {
         if (principal == null) return;
-        String sessionId = authorization != null && authorization.startsWith("Bearer ")
-            ? jwt.parse(authorization.substring(7)).getId() : null;
-        users.findByEmailIgnoreCase(principal.getUsername()).ifPresent(user -> service.logout(user, sessionId, request.getRemoteAddr()));
+        String activeSessionId = sessionId(authorization);
+        users.findByEmailIgnoreCase(principal.getUsername()).ifPresent(user -> service.logout(user, activeSessionId, request.getRemoteAddr()));
+    }
+    private String sessionId(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "La sesión no es válida.");
+        }
+        try {
+            return jwt.parse(authorization.substring(7)).getId();
+        } catch (JwtException exception) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "La sesión no es válida.");
+        }
     }
     private boolean hasRegistration(ClientRegistrationRepository repository, String id) { return repository != null && repository.findByRegistrationId(id) != null; }
     public record AuthConfig(boolean captchaEnabled, String captchaSiteKey, boolean googleEnabled, boolean microsoftEnabled) {}
+    public record UnlockRequest(
+        @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 72) String password,
+        @jakarta.validation.constraints.Size(max = 2048) String captchaToken
+    ) {}
     public record OAuthExchangeRequest(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 100) String code) {}
     public record OAuthRegistrationRequest(
         @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 100) String code,

@@ -41,6 +41,25 @@ public class AuthService {
         return response;
     }
     public void logout(User user, String sessionId, String ip) { sessions.close(user, sessionId, ip); }
+    public ActiveSessionService.SessionStatus sessionStatus(String email, String sessionId) {
+        User user = users.findByEmailIgnoreCase(email)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La cuenta ya no existe."));
+        return sessions.status(user.getId(), sessionId);
+    }
+    public ActiveSessionService.SessionStatus recordActivity(String email, String sessionId) {
+        User user = users.findByEmailIgnoreCase(email)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La cuenta ya no existe."));
+        return sessions.recordActivity(user.getId(), sessionId);
+    }
+    public ActiveSessionService.SessionStatus unlock(String email, String sessionId, String password, String captchaToken) {
+        checkBot(null, captchaToken);
+        User user = users.findByEmailIgnoreCase(email)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales incorrectas."));
+        if (!encoder.matches(password, user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "La contraseña es incorrecta.");
+        }
+        return sessions.unlock(user, sessionId);
+    }
     private void checkBot(String website, String captchaToken) {
         if (website != null && !website.isBlank()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No fue posible validar la solicitud");
         turnstile.verify(captchaToken);
