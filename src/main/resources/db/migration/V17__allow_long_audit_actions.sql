@@ -1,0 +1,2 @@
+ALTER TABLE audit_logs
+    MODIFY COLUMN action VARCHAR(50) NOT NULL;
