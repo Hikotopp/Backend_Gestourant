@@ -12,7 +12,7 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/* \
 	&& groupadd --system gestourant \
 	&& useradd --system --gid gestourant --home-dir /app --shell /usr/sbin/nologin gestourant \
-	&& mkdir -p /app/logs \
+	&& mkdir -p /app/logs /app/backups \
 	&& chown -R gestourant:gestourant /app
 
 WORKDIR /app

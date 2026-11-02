@@ -16,7 +16,7 @@ El repositorio contiene `railway.toml` para compilar con Nixpacks, escuchar en e
 
 ## Endpoints
 
-- `POST /api/auth/register`: usuario, email y password. La contraseña debe tener mínimo 10 caracteres y al menos un número.
+- `POST /api/auth/register`: usuario, email y password. La contraseña debe tener entre 12 y 72 caracteres e incluir al menos una mayúscula, una minúscula, un número y un carácter especial.
 - `POST /api/auth/login`: identifier (correo o usuario) y password.
 - `GET /api/auth/config`: indica si Turnstile y proveedores OAuth están configurados.
 - `GET /api/auth/session`: consulta el estado de la sesión y el tiempo restante para bloqueo o cierre.
@@ -90,17 +90,18 @@ Ejemplo de registro:
 
 ## Backups de base de datos
 
-El administrador puede crear, descargar y restaurar copias desde **Copias de seguridad**. Los respaldos incluyen el esquema y los datos de MySQL; el historial se consulta directamente del almacenamiento S3 y no desaparece al restaurar una copia anterior. No se eliminan copias automáticamente: la retención se administra en el almacenamiento S3. La restauración reemplaza los datos actuales, exige escribir `RESTAURAR` y crea obligatoriamente un respaldo de seguridad de la base de datos actual antes de aplicar la copia seleccionada. Si no es posible crear ese respaldo previo, la restauración se cancela.
+El administrador puede crear, descargar y restaurar copias desde **Copias de seguridad**. Los respaldos incluyen el esquema y los datos de MySQL. Docker local los conserva en el volumen persistente `backup_data`, montado en `/app/backups`; en despliegues con `BACKUP_S3_BUCKET` configurado se usa S3. El historial no desaparece al restaurar una copia anterior. No se eliminan copias automáticamente: en S3 la retención se administra allí y en local los archivos permanecen en el volumen. La restauración reemplaza los datos actuales, exige escribir `RESTAURAR` y crea obligatoriamente un respaldo de seguridad de la base de datos actual antes de aplicar la copia seleccionada. Si no es posible crear ese respaldo previo, la restauración se cancela.
 
 Configura en el backend:
 
 - `BACKUP_S3_BUCKET`: bucket dedicado a los respaldos.
+- `BACKUP_LOCAL_DIRECTORY`: carpeta local persistente de respaldos; se usa cuando no se configura un bucket S3.
 - `BACKUP_S3_REGION`: región S3 (`us-east-1` por defecto; Cloudflare R2 suele usar `auto`).
 - `BACKUP_S3_ENDPOINT`: endpoint opcional para R2 o MinIO.
 - `BACKUP_S3_PREFIX`: prefijo de objetos (`gestourant/backups` por defecto).
 - Credenciales mediante la cadena estándar de AWS SDK (por ejemplo `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`, o un rol de ejecución). El rol necesita `s3:ListBucket`, `s3:GetObject` y `s3:PutObject` sobre el bucket/prefijo.
 
-El backend también necesita los clientes de MySQL `mysqldump` y `mysql` en `PATH`. Si se instalaron en otra ubicación, define `MYSQLDUMP_COMMAND` y `MYSQL_COMMAND`. En Railway/Nixpacks, instala un cliente MySQL compatible en el servicio backend y configura el bucket/credenciales como variables privadas del servicio. Sin bucket configurado, las operaciones de backups responden con error explícito y no aparentan completarse.
+El backend también necesita los clientes de MySQL `mysqldump` y `mysql` en `PATH`. Si se instalaron en otra ubicación, define `MYSQLDUMP_COMMAND` y `MYSQL_COMMAND`. En Railway/Nixpacks, instala un cliente MySQL compatible en el servicio backend y configura el bucket/credenciales como variables privadas del servicio. Sin S3 ni carpeta local configurada, las operaciones de backups responden con error explícito y no aparentan completarse.
 
 ## Sesión única
 

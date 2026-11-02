@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,6 +38,7 @@ public class DatabaseBackupService {
     private final ObjectProvider<S3Client> s3Clients;
     private final String bucket;
     private final String prefix;
+    private final String localDirectory;
     private final String datasourceUrl;
     private final String datasourceUsername;
     private final String datasourcePassword;
@@ -47,6 +49,7 @@ public class DatabaseBackupService {
     public DatabaseBackupService(ObjectProvider<S3Client> s3Clients,
                                  @Value("${app.backup.s3.bucket:}") String bucket,
                                  @Value("${app.backup.s3.prefix:gestourant/backups}") String prefix,
+                                 @Value("${app.backup.local.directory:}") String localDirectory,
                                  @Value("${spring.datasource.url}") String datasourceUrl,
                                  @Value("${spring.datasource.username}") String datasourceUsername,
                                  @Value("${spring.datasource.password:}") String datasourcePassword,
@@ -56,6 +59,7 @@ public class DatabaseBackupService {
         this.s3Clients = s3Clients;
         this.bucket = bucket;
         this.prefix = prefix.replaceAll("^/+|/+$", "");
+        this.localDirectory = localDirectory;
         this.datasourceUrl = datasourceUrl;
         this.datasourceUsername = datasourceUsername;
         this.datasourcePassword = datasourcePassword;
@@ -65,24 +69,47 @@ public class DatabaseBackupService {
     }
 
     public List<DatabaseBackup> list() {
-        S3Client s3 = requireStorage();
         List<DatabaseBackup> backups = new ArrayList<>();
-        s3.listObjectsV2Paginator(ListObjectsV2Request.builder().bucket(bucket).prefix(prefix + "/").build())
-            .contents().forEach(object -> {
-                String key = object.key();
-                String id = idFromKey(key);
-                if (id != null) {
-                    backups.add(new DatabaseBackup(id,
-                        "gestourant-backup-" + FILE_TIMESTAMP.format(object.lastModified()) + ".sql",
-                        object.lastModified(), object.size()));
-                }
-            });
+        S3Client s3 = configuredS3Client();
+        if (s3 != null) {
+            s3.listObjectsV2Paginator(ListObjectsV2Request.builder().bucket(bucket).prefix(prefix + "/").build())
+                .contents().forEach(object -> {
+                    String id = idFromKey(object.key());
+                    if (id != null) {
+                        backups.add(new DatabaseBackup(id,
+                            "gestourant-backup-" + FILE_TIMESTAMP.format(object.lastModified()) + ".sql",
+                            object.lastModified(), object.size()));
+                    }
+                });
+        } else {
+            Path directory = requireLocalDirectory();
+            try (var files = Files.list(directory)) {
+                files.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().matches("[0-9a-fA-F-]{36}\\.sql"))
+                    .forEach(path -> {
+                        try {
+                            String id = path.getFileName().toString().replaceFirst("\\.sql$", "");
+                            Instant createdAt = Files.getLastModifiedTime(path).toInstant();
+                            backups.add(new DatabaseBackup(id,
+                                "gestourant-backup-" + FILE_TIMESTAMP.format(createdAt) + ".sql",
+                                createdAt, Files.size(path)));
+                        } catch (IOException ex) {
+                            throw new UncheckedIOException(ex);
+                        }
+                    });
+            } catch (UncheckedIOException ex) {
+                throw backupStorageFailure(ex.getCause());
+            } catch (IOException ex) {
+                throw backupStorageFailure(ex);
+            }
+        }
         backups.sort(Comparator.comparing(DatabaseBackup::createdAt).reversed());
         return backups;
     }
 
     public DatabaseBackup create(User user) {
-        S3Client s3 = requireStorage();
+        S3Client s3 = configuredS3Client();
+        Path directory = s3 == null ? requireLocalDirectory() : null;
         Path dump = null;
         Path errors = null;
         try {
@@ -95,17 +122,20 @@ public class DatabaseBackupService {
 
             Instant createdAt = Instant.now();
             String id = UUID.randomUUID().toString();
-            String key = objectKey(id);
-            s3.putObject(PutObjectRequest.builder().bucket(bucket).key(key).contentType("application/sql")
-                .metadata(java.util.Map.of("created-by", user.getUsername(), "created-at", createdAt.toString()))
-                .build(), RequestBody.fromFile(dump));
+            if (s3 != null) {
+                s3.putObject(PutObjectRequest.builder().bucket(bucket).key(objectKey(id)).contentType("application/sql")
+                    .metadata(java.util.Map.of("created-by", user.getUsername(), "created-at", createdAt.toString()))
+                    .build(), RequestBody.fromFile(dump));
+            } else {
+                storeLocalBackup(directory, id, dump);
+            }
             audit.log(user, "CREATE", "database-backup", "Respaldo creado: " + id, null);
             return new DatabaseBackup(id,
                 "gestourant-backup-" + FILE_TIMESTAMP.format(createdAt) + ".sql", createdAt, Files.size(dump));
         } catch (IOException ex) {
             log.error("Database backup operation failed.", ex);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                "No fue posible crear el respaldo. Revisa la configuración de MySQL y del almacenamiento S3.", ex);
+                "No fue posible crear el respaldo. Revisa la configuración de MySQL y del almacenamiento.", ex);
         } finally {
             deleteTemporaryFile(dump);
             deleteTemporaryFile(errors);
@@ -113,32 +143,55 @@ public class DatabaseBackupService {
     }
 
     public InputStream download(String id) {
-        return requireStorage().getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey(validateId(id))).build());
+        String backupId = validateId(id);
+        S3Client s3 = configuredS3Client();
+        if (s3 != null) {
+            return s3.getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey(backupId)).build());
+        }
+        try {
+            Path backup = localBackupPath(requireLocalDirectory(), backupId);
+            if (!Files.isRegularFile(backup)) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el respaldo solicitado.");
+            }
+            return Files.newInputStream(backup);
+        } catch (IOException ex) {
+            throw backupStorageFailure(ex);
+        }
     }
 
     public RestoreResult restore(String id, User user) {
-        S3Client s3 = requireStorage();
+        String backupId = validateId(id);
+        S3Client s3 = configuredS3Client();
+        Path directory = s3 == null ? requireLocalDirectory() : null;
         Path dump = null;
         Path errors = null;
         try {
             dump = Files.createTempFile("gestourant-restore-", ".sql");
             errors = Files.createTempFile("gestourant-restore-", ".err");
-            s3.getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey(validateId(id))).build(),
-                ResponseTransformer.toFile(dump));
+            if (s3 != null) {
+                s3.getObject(GetObjectRequest.builder().bucket(bucket).key(objectKey(backupId)).build(),
+                    ResponseTransformer.toFile(dump));
+            } else {
+                Path source = localBackupPath(directory, backupId);
+                if (!Files.isRegularFile(source)) {
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el respaldo solicitado.");
+                }
+                Files.copy(source, dump, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
             DatabaseBackup safetyBackup = create(user);
             audit.log(user, "SAFETY_BACKUP", "database-backup",
-                "Respaldo previo obligatorio antes de restaurar " + id + ": " + safetyBackup.id(), null);
+                "Respaldo previo obligatorio antes de restaurar " + backupId + ": " + safetyBackup.id(), null);
             ProcessBuilder process = mysqlProcess(mysqlCommand, false);
             process.redirectInput(dump.toFile());
             process.redirectError(errors.toFile());
             requireSuccessfulProcess(process, "No se pudo restaurar el respaldo de MySQL.");
             audit.log(user, "RESTORE", "database-backup",
-                "Base de datos restaurada desde: " + id + "; respaldo previo: " + safetyBackup.id(), null);
-            return new RestoreResult(id, safetyBackup.id(), safetyBackup.fileName(), safetyBackup.createdAt());
+                "Base de datos restaurada desde: " + backupId + "; respaldo previo: " + safetyBackup.id(), null);
+            return new RestoreResult(backupId, safetyBackup.id(), safetyBackup.fileName(), safetyBackup.createdAt());
         } catch (IOException ex) {
             log.error("Database restore operation failed.", ex);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                "No fue posible restaurar el respaldo. Revisa la configuración de MySQL y del almacenamiento S3.", ex);
+                "No fue posible restaurar el respaldo. Revisa la configuración de MySQL y del almacenamiento.", ex);
         } finally {
             deleteTemporaryFile(dump);
             deleteTemporaryFile(errors);
@@ -191,10 +244,52 @@ public class DatabaseBackupService {
         }
     }
 
-    private S3Client requireStorage() {
+    private S3Client configuredS3Client() {
+        if (bucket.isBlank()) return null;
         S3Client client = s3Clients.getIfAvailable();
-        if (client == null || bucket.isBlank()) throw new BackupStorageUnavailableException();
+        if (client == null) throw new BackupStorageUnavailableException();
         return client;
+    }
+
+    private Path requireLocalDirectory() {
+        if (localDirectory.isBlank()) throw new BackupStorageUnavailableException();
+        Path directory = Path.of(localDirectory).toAbsolutePath().normalize();
+        try {
+            Files.createDirectories(directory);
+            return directory;
+        } catch (IOException ex) {
+            log.error("Unable to create local database backup directory.", ex);
+            throw backupStorageFailure(ex);
+        }
+    }
+
+    private void storeLocalBackup(Path directory, String id, Path dump) throws IOException {
+        Path target = localBackupPath(directory, id);
+        Path temporary = Files.createTempFile(directory, ".backup-", ".tmp");
+        try {
+            Files.copy(dump, temporary, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            try {
+                Files.move(temporary, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                Files.move(temporary, target);
+            }
+        } finally {
+            deleteTemporaryFile(temporary);
+        }
+    }
+
+    private Path localBackupPath(Path directory, String id) {
+        Path backup = directory.resolve(validateId(id) + ".sql").normalize();
+        if (!backup.getParent().equals(directory)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No se encontró el respaldo solicitado.");
+        }
+        return backup;
+    }
+
+    private ResponseStatusException backupStorageFailure(IOException cause) {
+        log.error("Local database backup storage operation failed.", cause);
+        return new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+            "No fue posible acceder al almacenamiento local de respaldos.", cause);
     }
 
     private String objectKey(String id) {
