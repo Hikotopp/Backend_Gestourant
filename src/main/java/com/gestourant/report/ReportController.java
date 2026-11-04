@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
+import com.gestourant.time.ColombiaTime;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -21,7 +21,7 @@ public class ReportController {
 
     @GetMapping("/cash-close")
     public OrderService.CashClose cashClose(@RequestParam(required = false) LocalDate date) {
-        return orders.cashClose(date == null ? LocalDate.now(ZoneId.of("America/Bogota")) : date);
+        return orders.cashClose(date == null ? ColombiaTime.today() : date);
     }
 
     @GetMapping("/history")

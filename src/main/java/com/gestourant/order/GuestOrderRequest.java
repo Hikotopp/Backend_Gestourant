@@ -1,5 +1,6 @@
 package com.gestourant.order;
 
+import com.gestourant.time.ColombiaTime;
 import com.gestourant.restaurant.RestaurantTable;
 import jakarta.persistence.*;
 
@@ -23,7 +24,7 @@ public class GuestOrderRequest {
     private GuestRequestStatus status = GuestRequestStatus.PENDIENTE;
 
     @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt = ColombiaTime.now();
 
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
@@ -51,12 +52,12 @@ public class GuestOrderRequest {
 
     public void accept() {
         status = GuestRequestStatus.EN_COCINA;
-        resolvedAt = LocalDateTime.now();
+        resolvedAt = ColombiaTime.now();
     }
 
     public void reject() {
         status = GuestRequestStatus.RECHAZADA;
-        resolvedAt = LocalDateTime.now();
+        resolvedAt = ColombiaTime.now();
     }
 
     public void startPreparation() {

@@ -23,7 +23,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.time.ZoneOffset;
+import com.gestourant.time.ColombiaTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -34,7 +34,7 @@ import java.util.UUID;
 public class DatabaseBackupService {
     private static final Logger log = LoggerFactory.getLogger(DatabaseBackupService.class);
     private static final DateTimeFormatter FILE_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")
-        .withZone(ZoneOffset.UTC);
+        .withZone(ColombiaTime.ZONE);
     private final ObjectProvider<S3Client> s3Clients;
     private final String bucket;
     private final String prefix;

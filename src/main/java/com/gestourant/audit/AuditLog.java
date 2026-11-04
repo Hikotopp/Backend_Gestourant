@@ -2,6 +2,7 @@ package com.gestourant.audit;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import com.gestourant.time.ColombiaTime;
 
 @Entity
 @Table(name = "audit_logs")
@@ -15,6 +16,6 @@ public class AuditLog {
     @Column(name = "ip_address", length = 45) private String ipAddress;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     protected AuditLog() { }
-    public AuditLog(Long userId, String username, String action, String resource, String details, String ipAddress) { this.userId = userId; this.username = username; this.action = action; this.resource = resource; this.details = details; this.ipAddress = ipAddress; this.createdAt = LocalDateTime.now(); }
+    public AuditLog(Long userId, String username, String action, String resource, String details, String ipAddress) { this.userId = userId; this.username = username; this.action = action; this.resource = resource; this.details = details; this.ipAddress = ipAddress; this.createdAt = ColombiaTime.now(); }
     public Long getId() { return id; } public Long getUserId() { return userId; } public String getUsername() { return username; } public String getAction() { return action; } public String getResource() { return resource; } public String getDetails() { return details; } public String getIpAddress() { return ipAddress; } public LocalDateTime getCreatedAt() { return createdAt; }
 }

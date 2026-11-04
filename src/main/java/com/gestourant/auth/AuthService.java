@@ -4,6 +4,7 @@ import com.gestourant.user.User;
 import com.gestourant.user.UserRepository;
 import com.gestourant.user.Role;
 import com.gestourant.audit.AuditService;
+import com.gestourant.time.ColombiaTime;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -11,7 +12,6 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.time.LocalDateTime;
 
 @Service
 public class AuthService {
@@ -25,7 +25,7 @@ public class AuthService {
         if (users.existsByEmailIgnoreCase(email)) throw new ResponseStatusException(HttpStatus.CONFLICT, "El correo ya está registrado");
         Role role = users.count() == 0 ? Role.ADMINISTRADOR : request.role() == Role.ADMINISTRADOR && request.adminCode() != null && !adminRegistrationCode.isBlank() && request.adminCode().equals(adminRegistrationCode) ? Role.ADMINISTRADOR : Role.EMPLEADO;
         if (users.count() > 0 && request.role() == Role.ADMINISTRADOR && role != Role.ADMINISTRADOR) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El código de administrador no es válido");
-        User user = users.save(new User(username, email, encoder.encode(request.password()), role, LocalDateTime.now()));
+        User user = users.save(new User(username, email, encoder.encode(request.password()), role, ColombiaTime.now()));
         log.info("User registered username={} role={}", username, role);
         audit.log(user, "CREATE", "usuarios", "Cuenta creada con rol " + role, null);
         return sessions.open(user);

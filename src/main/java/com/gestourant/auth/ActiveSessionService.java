@@ -1,6 +1,7 @@
 package com.gestourant.auth;
 
 import com.gestourant.audit.AuditService;
+import com.gestourant.time.ColombiaTime;
 import com.gestourant.user.User;
 import com.gestourant.user.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,7 +40,7 @@ public class ActiveSessionService {
     public AuthResponse open(User requestedUser) {
         User user = users.findByIdForUpdate(requestedUser.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La cuenta ya no existe."));
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = ColombiaTime.now();
         boolean previousSessionClosed = user.getActiveSessionId() != null
             && user.getActiveSessionExpiresAt() != null
             && user.getActiveSessionExpiresAt().isAfter(now);
@@ -81,14 +82,14 @@ public class ActiveSessionService {
     public SessionStatus status(Long userId, String sessionId) {
         User user = users.findByIdForUpdate(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La cuenta ya no existe."));
-        return evaluate(user, sessionId, LocalDateTime.now());
+        return evaluate(user, sessionId, ColombiaTime.now());
     }
 
     @Transactional
     public SessionStatus recordActivity(Long userId, String sessionId) {
         User user = users.findByIdForUpdate(userId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La cuenta ya no existe."));
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = ColombiaTime.now();
         SessionStatus status = evaluate(user, sessionId, now);
         if (!status.active()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La sesión expiró por inactividad.");
@@ -104,7 +105,7 @@ public class ActiveSessionService {
     public SessionStatus unlock(User requestedUser, String sessionId) {
         User user = users.findByIdForUpdate(requestedUser.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La cuenta ya no existe."));
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = ColombiaTime.now();
         SessionStatus status = evaluate(user, sessionId, now);
         if (!status.active()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La sesión expiró por inactividad.");
@@ -118,7 +119,7 @@ public class ActiveSessionService {
     @Scheduled(fixedDelay = 1000)
     @Transactional
     public void closeInactiveSessions() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = ColombiaTime.now();
         LocalDateTime cutoff = now.minus(LOCK_AFTER_INACTIVITY);
         for (Long userId : users.findActiveSessionIdsInactiveSince(cutoff)) {
             users.findByIdForUpdate(userId).ifPresent(user -> {

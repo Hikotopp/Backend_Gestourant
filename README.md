@@ -2,6 +2,8 @@
 
 API de autenticación para Gestourant. Requiere Java 17 y MySQL 8.
 
+Las fechas y horas del sistema usan la zona `America/Bogota`. Los clientes también muestran fechas, horas de auditoría, facturas y respaldos en esa zona, independientemente de la zona configurada en el dispositivo.
+
 1. Crea la base de datos: `CREATE DATABASE gestourant CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
 2. Configura, si es necesario, `DB_USERNAME`, `DB_PASSWORD` y `JWT_SECRET`.
 3. Ejecuta: `mvn spring-boot:run`
@@ -92,16 +94,16 @@ Ejemplo de registro:
 
 El administrador puede crear, descargar y restaurar copias desde **Copias de seguridad**. Los respaldos incluyen el esquema y los datos de MySQL. Docker local los conserva en el volumen persistente `backup_data`, montado en `/app/backups`; en despliegues con `BACKUP_S3_BUCKET` configurado se usa S3. El historial no desaparece al restaurar una copia anterior. No se eliminan copias automáticamente: en S3 la retención se administra allí y en local los archivos permanecen en el volumen. La restauración reemplaza los datos actuales, exige escribir `RESTAURAR` y crea obligatoriamente un respaldo de seguridad de la base de datos actual antes de aplicar la copia seleccionada. Si no es posible crear ese respaldo previo, la restauración se cancela.
 
-Configura en el backend:
+Al configurar directamente el backend, usa los nombres de variables Spring Boot:
 
-- `BACKUP_S3_BUCKET`: bucket dedicado a los respaldos.
-- `BACKUP_LOCAL_DIRECTORY`: carpeta local persistente de respaldos; se usa cuando no se configura un bucket S3.
-- `BACKUP_S3_REGION`: región S3 (`us-east-1` por defecto; Cloudflare R2 suele usar `auto`).
-- `BACKUP_S3_ENDPOINT`: endpoint opcional para R2 o MinIO.
-- `BACKUP_S3_PREFIX`: prefijo de objetos (`gestourant/backups` por defecto).
+- `APP_BACKUP_S3_BUCKET`: bucket dedicado a los respaldos.
+- `APP_BACKUP_LOCAL_DIRECTORY`: carpeta local persistente de respaldos; se usa cuando no se configura un bucket S3.
+- `APP_BACKUP_S3_REGION`: región S3 (`us-east-1` por defecto; Cloudflare R2 suele usar `auto`).
+- `APP_BACKUP_S3_ENDPOINT`: endpoint opcional para R2 o MinIO.
+- `APP_BACKUP_S3_PREFIX`: prefijo de objetos (`gestourant/backups` por defecto).
 - Credenciales mediante la cadena estándar de AWS SDK (por ejemplo `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`, o un rol de ejecución). El rol necesita `s3:ListBucket`, `s3:GetObject` y `s3:PutObject` sobre el bucket/prefijo.
 
-El backend también necesita los clientes de MySQL `mysqldump` y `mysql` en `PATH`. Si se instalaron en otra ubicación, define `MYSQLDUMP_COMMAND` y `MYSQL_COMMAND`. En Railway/Nixpacks, instala un cliente MySQL compatible en el servicio backend y configura el bucket/credenciales como variables privadas del servicio. Sin S3 ni carpeta local configurada, las operaciones de backups responden con error explícito y no aparentan completarse.
+El backend también necesita los clientes de MySQL `mysqldump` y `mysql` en `PATH`. Si se instalaron en otra ubicación, define `APP_BACKUP_MYSQLDUMP_COMMAND` y `APP_BACKUP_MYSQL_COMMAND`. El Compose local traduce las variables `BACKUP_*` de su entorno a los nombres `APP_BACKUP_*` que espera Spring Boot. En Railway/Nixpacks, instala un cliente MySQL compatible en el servicio backend y configura el bucket/credenciales como variables privadas del servicio. Sin S3 ni carpeta local configurada, las operaciones de backups responden con error explícito y no aparentan completarse.
 
 ## Sesión única
 

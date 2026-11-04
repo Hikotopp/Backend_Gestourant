@@ -2,6 +2,7 @@ package com.gestourant.user;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import com.gestourant.time.ColombiaTime;
 
 @Entity
 @Table(name = "users")
@@ -20,7 +21,7 @@ public class User {
     @Column(name = "active_session_locked", nullable = false) private boolean activeSessionLocked;
     protected User() { }
     public User(String username, String email, String passwordHash, Role role) { this(username, email, passwordHash, role, null); }
-    public User(String username, String email, String passwordHash, Role role, LocalDateTime privacyConsentAt) { this.username = username; this.email = email; this.passwordHash = passwordHash; this.role = role; this.createdAt = LocalDateTime.now(); this.privacyConsentAt = privacyConsentAt; }
+    public User(String username, String email, String passwordHash, Role role, LocalDateTime privacyConsentAt) { this.username = username; this.email = email; this.passwordHash = passwordHash; this.role = role; this.createdAt = ColombiaTime.now(); this.privacyConsentAt = privacyConsentAt; }
     public Long getId() { return id; } public String getUsername() { return username; } public String getEmail() { return email; } public String getPasswordHash() { return passwordHash; } public Role getRole() { return role; } public LocalDateTime getPrivacyConsentAt() { return privacyConsentAt; }
     public String getActiveSessionId() { return activeSessionId; }
     public LocalDateTime getActiveSessionExpiresAt() { return activeSessionExpiresAt; }

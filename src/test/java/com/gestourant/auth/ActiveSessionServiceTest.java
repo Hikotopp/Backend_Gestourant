@@ -4,6 +4,7 @@ import com.gestourant.audit.AuditService;
 import com.gestourant.user.Role;
 import com.gestourant.user.User;
 import com.gestourant.user.UserRepository;
+import com.gestourant.time.ColombiaTime;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -31,7 +32,7 @@ class ActiveSessionServiceTest {
         User user = mock(User.class);
         when(user.getId()).thenReturn(7L);
         when(user.getActiveSessionId()).thenReturn("old-session");
-        when(user.getActiveSessionExpiresAt()).thenReturn(LocalDateTime.now().plusHours(1));
+        when(user.getActiveSessionExpiresAt()).thenReturn(ColombiaTime.now().plusHours(1));
         when(user.getUsername()).thenReturn("maria");
         when(user.getEmail()).thenReturn("maria@example.com");
         when(user.getRole()).thenReturn(Role.EMPLEADO);
@@ -75,7 +76,7 @@ class ActiveSessionServiceTest {
     @Test
     void unlocksTheExistingSessionAndResetsItsInactivityTimer() {
         User user = mock(User.class);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = ColombiaTime.now();
         when(user.getId()).thenReturn(7L);
         when(user.getActiveSessionId()).thenReturn("session-1");
         when(user.getActiveSessionExpiresAt()).thenReturn(now.plusHours(1));
@@ -111,7 +112,7 @@ class ActiveSessionServiceTest {
 
     private User inactiveUser(String sessionId, long secondsInactive) {
         User user = mock(User.class);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = ColombiaTime.now();
         when(user.getId()).thenReturn(7L);
         when(user.getActiveSessionId()).thenReturn(sessionId);
         when(user.getActiveSessionExpiresAt()).thenReturn(now.plusHours(1));

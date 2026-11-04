@@ -2,6 +2,7 @@ package com.gestourant.config;
 
 import com.gestourant.auth.JwtService;
 import com.gestourant.auth.ActiveSessionService;
+import com.gestourant.time.ColombiaTime;
 import com.gestourant.user.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -16,7 +17,6 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import java.time.LocalDateTime;
 import java.io.IOException;
 import java.util.List;
 
@@ -47,7 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
                 if (!claims.getId().equals(account.getActiveSessionId())
                     || account.getActiveSessionExpiresAt() == null
-                    || !account.getActiveSessionExpiresAt().isAfter(LocalDateTime.now())) return;
+                    || !account.getActiveSessionExpiresAt().isAfter(ColombiaTime.now())) return;
                 boolean sessionControlRequest = sessionStatusRequest
                     || path.equals("/api/auth/unlock")
                     || path.equals("/api/auth/logout");

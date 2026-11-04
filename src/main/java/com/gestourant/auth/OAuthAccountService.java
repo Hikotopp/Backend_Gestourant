@@ -2,6 +2,7 @@ package com.gestourant.auth;
 
 import com.gestourant.audit.AuditService;
 import com.gestourant.user.Role;
+import com.gestourant.time.ColombiaTime;
 import com.gestourant.user.User;
 import com.gestourant.user.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -81,7 +82,7 @@ public class OAuthAccountService {
         random.nextBytes(passwordBytes);
         String randomPassword = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(passwordBytes);
         Role role = users.count() == 0 ? Role.ADMINISTRADOR : Role.EMPLEADO;
-        User user = users.save(new User(username, normalizedEmail, encoder.encode(randomPassword), role, LocalDateTime.now()));
+        User user = users.save(new User(username, normalizedEmail, encoder.encode(randomPassword), role, ColombiaTime.now()));
         identities.save(new OAuthIdentity(user, provider, subject));
         audit.log(user, "CREATE", "usuarios", "Cuenta creada con " + provider, null);
         return user;
