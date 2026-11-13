@@ -2,6 +2,10 @@
 
 API de autenticación para Gestourant. Requiere Java 17 y MySQL 8.
 
+## Pruebas y CI
+
+Ejecuta `mvn -B -ntp verify` para correr las pruebas y la verificación Maven. GitHub Actions lo ejecuta en cada push o pull request a `main`. El workflow también levanta el frontend, backend y una base MySQL aislada mediante Docker Compose para comprobar la disponibilidad del frontend y del endpoint público de configuración de la API. La prueba integrada no usa datos ni credenciales de producción.
+
 Las fechas y horas del sistema usan la zona `America/Bogota`. Los clientes también muestran fechas, horas de auditoría, facturas y respaldos en esa zona, independientemente de la zona configurada en el dispositivo.
 
 1. Crea la base de datos: `CREATE DATABASE gestourant CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`
