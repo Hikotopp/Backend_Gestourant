@@ -47,11 +47,16 @@ El repositorio contiene `railway.toml` para compilar con Nixpacks, escuchar en e
 - `PATCH /api/orders/{orderId}/items/{itemId}`: guarda una indicación por producto (`removedIngredients`, hasta 500 caracteres; por ejemplo, `"maní"`).
 - `DELETE /api/orders/{orderId}/items/{itemId}`: retira un producto del pedido y devuelve su cantidad al inventario.
 - `POST /api/orders/{id}/close`: cierra la cuenta (`paymentMethod`: `EFECTIVO` o `DIGITAL`).
+- `GET /api/invoices/{id}/returns` y `POST /api/invoices/{id}/returns`: consulta y registra devoluciones parciales por línea de factura, con motivo, reembolso, disposición del producto y detalle del incidente. No modifica ni elimina la venta original.
+- `GET /api/inventory/losses?from=YYYY-MM-DD&to=YYYY-MM-DD`: consulta las mermas del periodo; el administrador ve el costo del restaurante y cada empleado ve sus propios registros.
+- `POST /api/inventory/losses`: registra producto, cantidad y causa de una merma y descuenta esas unidades del inventario.
 - `GET /api/products`: consulta el inventario.
-- `POST /api/products` y `PUT /api/products/{id}`: administra productos con `name`, `description`, `category` (`PLATO`, `BEBIDA` u `OTRO`), `price`, `stock` y `active`.
+- `POST /api/products` y `PUT /api/products/{id}`: administra productos con `name`, `description`, `category` (`PLATO`, `BEBIDA` u `OTRO`), `price`, `unitCost`, `stock` y `active`.
 - `GET /api/reports/cash-close`: resumen de caja del día.
 
 El croquis guarda las posiciones de las mesas y el administrador puede acomodarlas con arrastre. Cada mesa tiene un QR imprimible generado localmente en el navegador. El portal QR muestra la carta, pero no expone la cuenta compartida ni los pedidos de otros clientes. Cada pestaña crea una clave aleatoria de sesión; el backend guarda únicamente su hash y solo devuelve las solicitudes vinculadas a esa pestaña. Al enviar solicitudes y notas de ingredientes, quedan pendientes hasta que un empleado las revise y confirme. Al aprobarlas se agregan a la cuenta, se descuenta el inventario y aparecen como comanda en **Cocina**; el equipo puede actualizarla de `EN_COCINA` a `PREPARANDO` y `LISTO`. Para consultar la cuenta compartida o pedirla, el cliente debe hablar con el equipo; el pago se recibe y registra en caja como efectivo o digital después de verificarlo. Los estados del pedido y la sala se actualizan cada cinco segundos.
+
+Las facturas conservan el detalle de cada producto vendido, su nombre y precio al momento de la venta, cantidad, subtotal e indicaciones. Una devolución se registra contra una línea de una factura pagada, permite devoluciones parciales sin superar la cantidad vendida y conserva el motivo, usuario, fecha, método y valor del reembolso. La venta original permanece intacta. Si el artículo puede volver al inventario (por ejemplo, un producto sellado sin abrir), se restituyen las unidades; si no es seguro reutilizarlo (por ejemplo, un plato con un incidente de calidad), se registra como pérdida al costo interno capturado al vender. Las mermas por vencimiento, daño, contaminación u otro motivo también descuentan existencias y guardan el costo unitario vigente. Configura el costo unitario de cada producto antes de registrar mermas; los productos existentes reciben costo cero en la migración porque el costo histórico de compra no se puede inferir con seguridad.
 
 Para ejecutar ambos módulos, inicia el backend en el puerto `8081` y luego ejecuta `npm install` y `npm run dev` dentro de `Frontend_Gestourant`.
 

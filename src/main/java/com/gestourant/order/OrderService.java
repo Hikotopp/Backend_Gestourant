@@ -223,12 +223,23 @@ public class OrderService {
         BigDecimal digital = sum(invoiceList, PaymentMethod.DIGITAL);
         List<InvoiceDetail> details = invoiceList.stream()
             .map(invoice -> new InvoiceDetail(
+                invoice.getId(),
                 invoice.getInvoiceNumber(),
                 invoice.getIssuedAt(),
                 invoice.getOrder().getTable().getTableNumber(),
                 invoice.getPaymentMethod().name(),
                 invoice.getTotal(),
-                invoice.getOrder().createdByForReport().getUsername()
+                invoice.getOrder().createdByForReport().getUsername(),
+                invoice.getOrder().getItems().stream()
+                    .map(item -> new InvoiceItemDetail(
+                        item.getId(),
+                        item.getProductName(),
+                        item.getQuantity(),
+                        item.getUnitPrice(),
+                        item.getSubtotal(),
+                        item.getRemovedIngredients()
+                    ))
+                    .toList()
             ))
             .toList();
 
@@ -251,12 +262,23 @@ public class OrderService {
     ) {}
 
     public record InvoiceDetail(
+        Long invoiceId,
         String invoiceNumber,
         LocalDateTime issuedAt,
         Integer tableNumber,
         String paymentMethod,
         BigDecimal total,
-        String employee
+        String employee,
+        List<InvoiceItemDetail> items
+    ) {}
+
+    public record InvoiceItemDetail(
+        Long orderItemId,
+        String productName,
+        Integer quantity,
+        BigDecimal unitPrice,
+        BigDecimal subtotal,
+        String removedIngredients
     ) {}
 
     public record InvoiceHistory(

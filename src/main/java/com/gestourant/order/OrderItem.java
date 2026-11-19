@@ -25,6 +25,12 @@ public class OrderItem {
     @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
 
+    @Column(name = "unit_cost", nullable = false, precision = 12, scale = 2)
+    private BigDecimal unitCost;
+
+    @Column(name = "product_name_snapshot", nullable = false, length = 120)
+    private String productName;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal subtotal;
 
@@ -42,6 +48,8 @@ public class OrderItem {
         this.product = product;
         this.quantity = quantity;
         this.unitPrice = unitPrice;
+        this.unitCost = product.getUnitCost();
+        this.productName = product.getName();
         this.subtotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
     }
 
@@ -49,6 +57,8 @@ public class OrderItem {
     public Product getProduct() { return product; }
     public Integer getQuantity() { return quantity; }
     public BigDecimal getUnitPrice() { return unitPrice; }
+    public BigDecimal getUnitCost() { return unitCost; }
+    public String getProductName() { return productName; }
     public BigDecimal getSubtotal() { return subtotal; }
     public String getRemovedIngredients() { return removedIngredients; }
 

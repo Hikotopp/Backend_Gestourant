@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -71,11 +72,12 @@ public class ProductController {
         @Size(max = 1000)
         @Pattern(regexp = "^$|^https://.+", message = "La imagen debe usar una dirección HTTPS") String imageUrl,
         @NotNull @DecimalMin("0.01") BigDecimal price,
+        @NotNull @DecimalMin("0.01") BigDecimal unitCost,
         @NotNull @Min(0) Integer stock,
         boolean active
     ) {
         CatalogService.ProductCommand toCommand() {
-            return new CatalogService.ProductCommand(name, description, category, imageUrl, price, stock, active);
+            return new CatalogService.ProductCommand(name, description, category, imageUrl, price, unitCost, stock, active);
         }
     }
 
@@ -86,10 +88,13 @@ public class ProductController {
         String category,
         String imageUrl,
         BigDecimal price,
+        BigDecimal unitCost,
         Integer stock,
         boolean active
     ) {
         static ProductResponse from(Product product) {
+            boolean includeCost = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMINISTRADOR"));
             return new ProductResponse(
                 product.getId(),
                 product.getName(),
@@ -97,6 +102,7 @@ public class ProductController {
                 product.getCategory(),
                 product.getImageUrl(),
                 product.getPrice(),
+                includeCost ? product.getUnitCost() : null,
                 product.getStock(),
                 product.isActive()
             );

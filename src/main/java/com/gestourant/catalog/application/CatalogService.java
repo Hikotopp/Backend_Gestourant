@@ -25,6 +25,7 @@ public class CatalogService {
             command.category(),
             command.imageUrl(),
             command.price(),
+            command.unitCost(),
             command.stock()
         ));
     }
@@ -37,6 +38,7 @@ public class CatalogService {
             command.category(),
             command.imageUrl(),
             command.price(),
+            command.unitCost(),
             command.stock(),
             command.active()
         );
@@ -58,6 +60,7 @@ public class CatalogService {
         String category,
         String imageUrl,
         BigDecimal price,
+        BigDecimal unitCost,
         Integer stock,
         boolean active
     ) {}

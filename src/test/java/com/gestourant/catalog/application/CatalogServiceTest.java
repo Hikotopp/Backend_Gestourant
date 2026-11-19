@@ -28,18 +28,21 @@ class CatalogServiceTest {
         Product created = service.create(command);
 
         assertEquals("Limonada", created.getName());
-        verify(products).save(argThat(saved -> saved.getName().equals("Limonada") && saved.isActive()));
+        verify(products).save(argThat(saved -> saved.getName().equals("Limonada")
+            && saved.getUnitCost().equals(new BigDecimal("1800"))
+            && saved.isActive()));
     }
 
     @Test
     void updatesAnExistingProductThroughThePersistencePort() {
-        Product existing = new Product("Limonada", "Natural", "BEBIDA", "https://example.com/old.jpg", new BigDecimal("6000"), 8);
+        Product existing = new Product("Limonada", "Natural", "BEBIDA", "https://example.com/old.jpg", new BigDecimal("6000"), new BigDecimal("1500"), 8);
         when(products.findById(5L)).thenReturn(Optional.of(existing));
         when(products.save(existing)).thenReturn(existing);
 
         Product updated = service.update(5L, command("Limonada de coco", false));
 
         assertEquals("Limonada de coco", updated.getName());
+        assertEquals(new BigDecimal("1800"), updated.getUnitCost());
         assertEquals(false, updated.isActive());
         verify(products).save(existing);
     }
@@ -58,6 +61,7 @@ class CatalogServiceTest {
             "BEBIDA",
             "https://example.com/lemonade.jpg",
             new BigDecimal("6000"),
+            new BigDecimal("1800"),
             8,
             active
         );
