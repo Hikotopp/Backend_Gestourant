@@ -55,7 +55,7 @@ public class AuthController {
     }
     @GetMapping("/config") public AuthConfig config() {
         ClientRegistrationRepository repository = registrations.getIfAvailable();
-        return new AuthConfig(turnstile.isEnabled(), turnstile.isEnabled() ? turnstileSiteKey : "", hasRegistration(repository, "google"), hasRegistration(repository, "microsoft"));
+        return new AuthConfig(turnstile.isEnabled(), turnstile.isEnabled() ? turnstileSiteKey : "", hasRegistration(repository, "google"));
     }
     @PostMapping("/oauth/exchange") public AuthResponse exchange(@Valid @RequestBody OAuthExchangeRequest request) {
         AuthResponse result = oauthCodes.consume(request.code());
@@ -64,7 +64,7 @@ public class AuthController {
     }
     @PostMapping("/oauth/register") public AuthResponse registerOAuth(@Valid @RequestBody OAuthRegistrationRequest request) {
         PendingOAuthRegistrationStore.Profile profile = pendingOAuthRegistrations.consume(request.code());
-        if (profile == null) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "El registro expiró. Inicia de nuevo con Google o Microsoft.");
+        if (profile == null) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED, "El registro expiró. Inicia de nuevo con Google.");
         return oauthAccountService.registerWithOAuth(profile.provider(), profile.subject(), profile.email(), profile.displayName(), request.privacyConsent());
     }
     @PostMapping("/logout") @ResponseStatus(HttpStatus.NO_CONTENT) public void logout(@AuthenticationPrincipal UserDetails principal, @RequestHeader(value = "Authorization", required = false) String authorization, jakarta.servlet.http.HttpServletRequest request) {
@@ -83,7 +83,7 @@ public class AuthController {
         }
     }
     private boolean hasRegistration(ClientRegistrationRepository repository, String id) { return repository != null && repository.findByRegistrationId(id) != null; }
-    public record AuthConfig(boolean captchaEnabled, String captchaSiteKey, boolean googleEnabled, boolean microsoftEnabled) {}
+    public record AuthConfig(boolean captchaEnabled, String captchaSiteKey, boolean googleEnabled) {}
     public record UnlockRequest(
         @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 72) String password,
         @jakarta.validation.constraints.Size(max = 2048) String captchaToken

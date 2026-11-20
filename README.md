@@ -64,10 +64,9 @@ Para ejecutar ambos módulos, inicia el backend en el puerto `8081` y luego ejec
 
 ## Inicio de sesión y protección
 
-Los accesos Google y Microsoft se habilitan al definir `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_ID` y `MICROSOFT_CLIENT_SECRET`. Registra como URI de redirección en ambos proveedores:
+El acceso con Google se habilita al definir `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`. Registra esta URI de redirección en la consola de Google:
 
 - Google: `http://localhost:8081/login/oauth2/code/google`
-- Microsoft: `http://localhost:8081/login/oauth2/code/microsoft`
 
 El backend también valida la firma de los ID tokens usando las claves públicas JWK de cada proveedor.
 
@@ -118,4 +117,4 @@ El backend también necesita los clientes de MySQL `mysqldump` y `mysql` en `PAT
 
 ## Sesión única
 
-Cada cuenta admite una sola sesión autenticada a la vez, también para acceso con Google/Microsoft. Un nuevo inicio invalida la sesión anterior; cerrar sesión o alcanzar cinco minutos de inactividad la invalida inmediatamente.
+Cada cuenta admite una sola sesión autenticada a la vez, también para acceso con Google. Un nuevo inicio invalida la sesión anterior; cerrar sesión o alcanzar cinco minutos de inactividad la invalida inmediatamente.

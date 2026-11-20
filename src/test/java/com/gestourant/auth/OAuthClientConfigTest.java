@@ -6,6 +6,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class OAuthClientConfigTest {
 
@@ -26,7 +27,7 @@ class OAuthClientConfigTest {
     }
 
     @Test
-    void configuresMicrosoftSigningKeys() {
+    void doesNotRegisterMicrosoftEvenWhenLegacyPropertiesExist() {
         MockEnvironment environment = new MockEnvironment()
             .withProperty("app.oauth.microsoft.client-id", "microsoft-client")
             .withProperty("app.oauth.microsoft.client-secret", "microsoft-secret");
@@ -34,8 +35,6 @@ class OAuthClientConfigTest {
         ClientRegistration registration = config.clientRegistrationRepository(environment)
             .findByRegistrationId("microsoft");
 
-        assertNotNull(registration);
-        assertEquals("https://login.microsoftonline.com/common/discovery/v2.0/keys",
-            registration.getProviderDetails().getJwkSetUri());
+        assertNull(registration);
     }
 }
