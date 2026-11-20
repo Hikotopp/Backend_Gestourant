@@ -34,7 +34,7 @@ public class AuthService {
         checkBot(request.website(), request.captchaToken());
         String identifier = request.identifier().trim();
         User user = users.findByEmailIgnoreCase(identifier).or(() -> users.findByUsernameIgnoreCase(identifier)).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales incorrectas"));
-        if (!encoder.matches(request.password(), user.getPasswordHash())) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales incorrectas");
+        if (!user.isEnabled() || !encoder.matches(request.password(), user.getPasswordHash())) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales incorrectas");
         log.info("User authenticated username={} role={}", user.getUsername(), user.getRole());
         AuthResponse response = sessions.open(user);
         audit.log(user, "LOGIN", "sesion", "Inicio de sesión", null);

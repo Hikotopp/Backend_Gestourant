@@ -19,4 +19,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByIdForUpdate(@Param("id") Long id);
     @Query("select user.id from User user where user.activeSessionId is not null and user.lastActivityAt <= :cutoff")
     List<Long> findActiveSessionIdsInactiveSince(@Param("cutoff") LocalDateTime cutoff);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select user from User user where user.enabled = true and user.role = :role order by user.id")
+    List<User> findEnabledByRoleForUpdate(@Param("role") Role role);
 }

@@ -38,6 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
             users.findByEmailIgnoreCase(claims.getSubject()).ifPresent(account -> {
+                if (!account.isEnabled()) return;
                 String path = request.getServletPath();
                 boolean sessionStatusRequest = path.equals("/api/auth/session");
                 if (claims.getId() == null) return;

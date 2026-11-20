@@ -19,14 +19,23 @@ public class User {
     @Column(name = "active_session_expires_at") private LocalDateTime activeSessionExpiresAt;
     @Column(name = "last_activity_at") private LocalDateTime lastActivityAt;
     @Column(name = "active_session_locked", nullable = false) private boolean activeSessionLocked;
+    @Column(nullable = false) private boolean enabled = true;
     protected User() { }
     public User(String username, String email, String passwordHash, Role role) { this(username, email, passwordHash, role, null); }
     public User(String username, String email, String passwordHash, Role role, LocalDateTime privacyConsentAt) { this.username = username; this.email = email; this.passwordHash = passwordHash; this.role = role; this.createdAt = ColombiaTime.now(); this.privacyConsentAt = privacyConsentAt; }
-    public Long getId() { return id; } public String getUsername() { return username; } public String getEmail() { return email; } public String getPasswordHash() { return passwordHash; } public Role getRole() { return role; } public LocalDateTime getPrivacyConsentAt() { return privacyConsentAt; }
+    public Long getId() { return id; } public String getUsername() { return username; } public String getEmail() { return email; } public String getPasswordHash() { return passwordHash; } public Role getRole() { return role; } public LocalDateTime getCreatedAt() { return createdAt; } public LocalDateTime getPrivacyConsentAt() { return privacyConsentAt; }
     public String getActiveSessionId() { return activeSessionId; }
     public LocalDateTime getActiveSessionExpiresAt() { return activeSessionExpiresAt; }
     public LocalDateTime getLastActivityAt() { return lastActivityAt; }
     public boolean isActiveSessionLocked() { return activeSessionLocked; }
+    public boolean isEnabled() { return enabled; }
+    public void updateCredentials(String username, String email) { this.username = username; this.email = email; }
+    public void updatePasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public void setRole(Role role) { this.role = role; }
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+        if (!enabled) clearActiveSession();
+    }
     public void setActiveSession(String sessionId, LocalDateTime expiresAt, LocalDateTime lastActivityAt) {
         this.activeSessionId = sessionId;
         this.activeSessionExpiresAt = expiresAt;

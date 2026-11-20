@@ -31,6 +31,7 @@ class ActiveSessionServiceTest {
     void replacesThePreviousSessionInsteadOfRejectingTheNewLogin() {
         User user = mock(User.class);
         when(user.getId()).thenReturn(7L);
+        when(user.isEnabled()).thenReturn(true);
         when(user.getActiveSessionId()).thenReturn("old-session");
         when(user.getActiveSessionExpiresAt()).thenReturn(ColombiaTime.now().plusHours(1));
         when(user.getUsername()).thenReturn("maria");

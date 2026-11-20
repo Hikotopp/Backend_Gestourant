@@ -29,6 +29,9 @@ El repositorio contiene `railway.toml` para compilar con Nixpacks, escuchar en e
 - `POST /api/auth/activity`: registra actividad explícita de la sesión autenticada.
 - `POST /api/auth/unlock`: valida la contraseña y reanuda la misma sesión bloqueada sin emitir otro token.
 - `GET /api/audit-logs?page=0&size=50`: consulta los eventos de auditoría paginados (solo administrador; máximo 100 por página).
+- `GET /api/admin/users`, `POST /api/admin/users` y `PATCH /api/admin/users/{id}`: lista el equipo, crea cuentas con rol `ADMINISTRADOR` o `EMPLEADO`, cambia roles y activa o desactiva cuentas (solo administrador; no permite desactivar al último administrador activo).
+- `GET /api/users/me` y `PUT /api/users/me`: consulta y actualiza el usuario/correo propios; cualquier cambio exige la contraseña actual y la contraseña nueva, si se cambia, debe cumplir la política vigente.
+- `GET`, `PUT` y `DELETE /api/users/me/photo`: obtiene, carga o elimina la foto propia. La carga acepta JPG/PNG de hasta 1 MB y 2048 × 2048 píxeles.
 - `POST /api/auth/oauth/exchange`: canjea un código de inicio OAuth de un solo uso y 60 segundos por un JWT.
 - `POST /api/auth/oauth/register`: completa el alta OAuth usando el código temporal recibido después de autenticar con el proveedor y registra el consentimiento expreso antes de crear la cuenta.
 - `GET /api/tables`: consulta las mesas de la sala.
@@ -56,6 +59,8 @@ El repositorio contiene `railway.toml` para compilar con Nixpacks, escuchar en e
 
 La migración `V20` amplía el catálogo inicial con 35 platos, entradas, postres y bebidas con descripción e imagen; completa las imágenes faltantes de los seis productos originales y evita duplicar nombres que ya existan. Las fotos se sirven desde Unsplash. Los productos de ejemplo quedan con costo interno `0.00`, porque el costo real de compra depende del restaurante; antes de registrar mermas o pérdidas, el administrador debe actualizar ese valor en el catálogo.
 
+La migración `V21` agrega la activación/desactivación administrativa de cuentas y una tabla separada para fotos de perfil. Las imágenes se guardan en la base de datos MySQL persistente y se incluyen en los respaldos de la base de datos.
+
 El croquis guarda las posiciones de las mesas y el administrador puede acomodarlas con arrastre. Cada mesa tiene un QR imprimible generado localmente en el navegador. El portal QR muestra la carta, pero no expone la cuenta compartida ni los pedidos de otros clientes. Cada pestaña crea una clave aleatoria de sesión; el backend guarda únicamente su hash y solo devuelve las solicitudes vinculadas a esa pestaña. Al enviar solicitudes y notas de ingredientes, quedan pendientes hasta que un empleado las revise y confirme. Al aprobarlas se agregan a la cuenta, se descuenta el inventario y aparecen como comanda en **Cocina**; el equipo puede actualizarla de `EN_COCINA` a `PREPARANDO` y `LISTO`. Para consultar la cuenta compartida o pedirla, el cliente debe hablar con el equipo; el pago se recibe y registra en caja como efectivo o digital después de verificarlo. Los estados del pedido y la sala se actualizan cada cinco segundos.
 
 Las facturas conservan el detalle de cada producto vendido, su nombre y precio al momento de la venta, cantidad, subtotal e indicaciones. Una devolución se registra contra una línea de una factura pagada, permite devoluciones parciales sin superar la cantidad vendida y conserva el motivo, usuario, fecha, método y valor del reembolso. La venta original permanece intacta. Si el artículo puede volver al inventario (por ejemplo, un producto sellado sin abrir), se restituyen las unidades; si no es seguro reutilizarlo (por ejemplo, un plato con un incidente de calidad), se registra como pérdida al costo interno capturado al vender. Las mermas por vencimiento, daño, contaminación u otro motivo también descuentan existencias y guardan el costo unitario vigente. Configura el costo unitario de cada producto antes de registrar mermas; los productos existentes reciben costo cero en la migración porque el costo histórico de compra no se puede inferir con seguridad.
@@ -82,7 +87,7 @@ El backend usa puertos y adaptadores en los límites de auditoría: `audit/port`
 
 El frontend separa el adaptador HTTP y el logger en `src/infrastructure`. Las vistas llaman al cliente de aplicación y no gestionan tokens ni respuestas HTTP directamente. En desarrollo, los eventos de red, autenticación y errores aparecen en la consola del navegador.
 
-El primer usuario es administrador automáticamente; los registros posteriores reciben rol empleado. Los permisos administrativos deben asignarse por el responsable del sistema.
+El primer usuario es administrador automáticamente; los registros públicos posteriores reciben rol empleado. Un administrador puede crear cuentas de cualquiera de los dos roles y gestionar (activar/desactivar) al equipo desde la API administrativa. Las cuentas desactivadas no pueden iniciar sesión y debe quedar siempre al menos un administrador activo.
 
 ## Roles
 

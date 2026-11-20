@@ -40,6 +40,9 @@ public class ActiveSessionService {
     public AuthResponse open(User requestedUser) {
         User user = users.findByIdForUpdate(requestedUser.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La cuenta ya no existe."));
+        if (!user.isEnabled()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La cuenta está desactivada.");
+        }
         LocalDateTime now = ColombiaTime.now();
         boolean previousSessionClosed = user.getActiveSessionId() != null
             && user.getActiveSessionExpiresAt() != null
@@ -65,6 +68,26 @@ public class ActiveSessionService {
             user.getEmail(),
             user.getRole(),
             previousSessionClosed
+        );
+    }
+
+    @Transactional
+    public AuthResponse refresh(User requestedUser) {
+        User user = users.findByIdForUpdate(requestedUser.getId())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La cuenta ya no existe."));
+        if (!user.isEnabled() || user.getActiveSessionId() == null
+            || user.getActiveSessionExpiresAt() == null
+            || !user.getActiveSessionExpiresAt().isAfter(ColombiaTime.now())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "La sesión expiró o fue cerrada.");
+        }
+        return new AuthResponse(
+            jwt.generate(user, user.getActiveSessionId()),
+            "Bearer",
+            user.getId(),
+            user.getUsername(),
+            user.getEmail(),
+            user.getRole(),
+            false
         );
     }
 

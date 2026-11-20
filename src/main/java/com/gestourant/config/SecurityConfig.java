@@ -7,10 +7,13 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import com.gestourant.auth.OAuthLoginSuccessHandler;
 import com.gestourant.auth.OAuthLoginFailureHandler;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -31,7 +34,11 @@ public class SecurityConfig {
         http.csrf(AbstractHttpConfigurer::disable)
             .cors(org.springframework.security.config.Customizer.withDefaults())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-            .authorizeHttpRequests(a -> a.requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/config", "/api/auth/session", "/api/auth/oauth/exchange", "/api/auth/oauth/register", "/api/guest/**", "/error", "/oauth2/**", "/login/oauth2/**").permitAll().requestMatchers("/api/audit-logs/**", "/api/admin/backups/**").hasRole("ADMINISTRADOR").anyRequest().authenticated())
+            .authorizeHttpRequests(a -> a.requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/config", "/api/auth/session", "/api/auth/oauth/exchange", "/api/auth/oauth/register", "/api/guest/**", "/error", "/oauth2/**", "/login/oauth2/**").permitAll().requestMatchers("/api/audit-logs/**", "/api/admin/backups/**", "/api/admin/users/**").hasRole("ADMINISTRADOR").anyRequest().authenticated())
+            .exceptionHandling(e -> e.defaultAuthenticationEntryPointFor(
+                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                new AntPathRequestMatcher("/api/**")
+            ))
             .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(audit, JwtAuthenticationFilter.class);
         http.oauth2Login(oauth -> oauth
