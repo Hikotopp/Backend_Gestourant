@@ -93,7 +93,7 @@ public class GuestOrderingService {
             : orderService.open(table.getId());
 
         for (GuestOrderRequestItem item : request.getItems()) {
-            order = orderService.addItem(
+            order = orderService.addGuestItem(
                 order.getId(), item.getProduct().getId(), item.getQuantity(),
                 item.getUnitPrice(), item.getRemovedIngredients()
             );

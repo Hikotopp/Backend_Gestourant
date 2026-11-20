@@ -120,7 +120,7 @@ class GuestOrderingServiceTest {
 
         assertEquals(GuestRequestStatus.EN_COCINA, view.status());
         verify(orderService).open(12L);
-        verify(orderService).addItem(44L, 4L, 2, new BigDecimal("7000"), "sin hielo");
+        verify(orderService).addGuestItem(44L, 4L, 2, new BigDecimal("7000"), "sin hielo");
         verify(requests).save(request);
     }
 }

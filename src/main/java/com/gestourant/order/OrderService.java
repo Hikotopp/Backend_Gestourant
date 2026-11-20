@@ -5,6 +5,7 @@ import com.gestourant.catalog.application.port.out.ProductCatalogPort;
 import com.gestourant.restaurant.RestaurantTable;
 import com.gestourant.restaurant.RestaurantTableRepository;
 import com.gestourant.restaurant.TableStatus;
+import com.gestourant.time.ColombiaTime;
 import com.gestourant.user.User;
 import com.gestourant.user.UserRepository;
 import jakarta.transaction.Transactional;
@@ -16,7 +17,11 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class OrderService {
@@ -78,6 +83,28 @@ public class OrderService {
         BigDecimal agreedPrice,
         String removedIngredients
     ) {
+        return addItem(orderId, productId, quantity, agreedPrice, removedIngredients, OrderItemOrigin.STAFF);
+    }
+
+    @Transactional
+    public RestaurantOrder addGuestItem(
+        Long orderId,
+        Long productId,
+        int quantity,
+        BigDecimal agreedPrice,
+        String removedIngredients
+    ) {
+        return addItem(orderId, productId, quantity, agreedPrice, removedIngredients, OrderItemOrigin.QR);
+    }
+
+    private RestaurantOrder addItem(
+        Long orderId,
+        Long productId,
+        int quantity,
+        BigDecimal agreedPrice,
+        String removedIngredients,
+        OrderItemOrigin origin
+    ) {
         RestaurantOrder order = getOpen(orderId);
         Product product = products.findById(productId)
             .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado"));
@@ -90,7 +117,8 @@ public class OrderService {
             order,
             product,
             quantity,
-            agreedPrice == null ? product.getPrice() : agreedPrice
+            agreedPrice == null ? product.getPrice() : agreedPrice,
+            origin
         );
         item.updateRemovedIngredients(removedIngredients == null ? "" : removedIngredients);
         order.addItem(item);
@@ -105,6 +133,7 @@ public class OrderService {
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("El producto no pertenece a este pedido"));
 
+        item.ensureDraft();
         item.updateRemovedIngredients(removedIngredients == null ? "" : removedIngredients.trim());
         return orders.save(order);
     }
@@ -112,8 +141,94 @@ public class OrderService {
     @Transactional
     public RestaurantOrder removeItem(Long orderId, Long itemId) {
         RestaurantOrder order = getOpen(orderId);
+        order.getItems().stream()
+            .filter(candidate -> candidate.getId().equals(itemId))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("El producto no pertenece a este pedido"))
+            .ensureDraft();
         OrderItem item = order.removeItem(itemId);
         item.getProduct().restoreStock(item.getQuantity());
+        return orders.save(order);
+    }
+
+    @Transactional
+    public RestaurantOrder submitToKitchen(Long orderId) {
+        RestaurantOrder order = getOpen(orderId);
+        List<OrderItem> draftItems = order.getItems().stream()
+            .filter(item -> item.getOrigin() == OrderItemOrigin.STAFF)
+            .filter(item -> item.getKitchenStatus() == KitchenItemStatus.BORRADOR)
+            .toList();
+        if (draftItems.isEmpty()) {
+            throw new IllegalArgumentException("Agrega productos nuevos antes de enviar el pedido a cocina");
+        }
+
+        String batchId = UUID.randomUUID().toString();
+        LocalDateTime submittedAt = ColombiaTime.now();
+        draftItems.forEach(item -> item.submitToKitchen(batchId, submittedAt));
+        return orders.save(order);
+    }
+
+    @Transactional
+    public List<KitchenTicketView> kitchenOrderTickets() {
+        List<KitchenTicketView> tickets = new ArrayList<>();
+        for (RestaurantOrder order : orders.findByStatusOrderByOpenedAtAsc(OrderStatus.ABIERTA).stream().distinct().toList()) {
+            Map<String, List<OrderItem>> batches = new LinkedHashMap<>();
+            for (OrderItem item : order.getItems()) {
+                if (item.getOrigin() == OrderItemOrigin.STAFF
+                    && item.getKitchenBatchId() != null
+                    && item.getKitchenStatus() != KitchenItemStatus.ENTREGADO) {
+                    batches.computeIfAbsent(item.getKitchenBatchId(), ignored -> new ArrayList<>()).add(item);
+                }
+            }
+            batches.forEach((batchId, items) -> {
+                KitchenItemStatus status = items.get(0).getKitchenStatus();
+                if (items.stream().anyMatch(item -> item.getKitchenStatus() != status)) {
+                    throw new IllegalStateException("La comanda contiene estados de cocina inconsistentes");
+                }
+                tickets.add(new KitchenTicketView(
+                    batchId,
+                    order.getId(),
+                    order.getTable().getTableNumber(),
+                    status,
+                    items.get(0).getKitchenSubmittedAt(),
+                    items.stream()
+                        .map(item -> new KitchenTicketItemView(
+                            item.getProductName(),
+                            item.getQuantity(),
+                            item.getRemovedIngredients()
+                        ))
+                        .toList()
+                ));
+            });
+        }
+        return tickets;
+    }
+
+    @Transactional
+    public RestaurantOrder advanceKitchenBatch(String batchId) {
+        RestaurantOrder order = orders.findKitchenBatchOrder(OrderStatus.ABIERTA, batchId)
+            .orElseThrow(() -> new IllegalArgumentException("La comanda ya no está en cocina"));
+        List<OrderItem> batchItems = order.getItems().stream()
+            .filter(item -> batchId.equals(item.getKitchenBatchId()))
+            .toList();
+        ensureSingleBatchStatus(batchItems);
+        batchItems.forEach(OrderItem::advanceKitchenStatus);
+        return orders.save(order);
+    }
+
+    @Transactional
+    public RestaurantOrder deliverKitchenBatch(Long orderId, String batchId) {
+        RestaurantOrder order = getOpen(orderId);
+        List<OrderItem> batchItems = order.getItems().stream()
+            .filter(item -> batchId.equals(item.getKitchenBatchId()))
+            .toList();
+        if (batchItems.isEmpty()) {
+            throw new IllegalArgumentException("La comanda no pertenece a esta cuenta");
+        }
+        if (batchItems.stream().anyMatch(item -> item.getKitchenStatus() != KitchenItemStatus.LISTO)) {
+            throw new IllegalArgumentException("Espera a que cocina marque la comanda como lista");
+        }
+        batchItems.forEach(OrderItem::markDelivered);
         return orders.save(order);
     }
 
@@ -132,6 +247,11 @@ public class OrderService {
         }
         if (order.getItems().isEmpty()) {
             throw new IllegalArgumentException("El pedido no tiene productos");
+        }
+        if (order.getItems().stream()
+            .filter(item -> item.getOrigin() == OrderItemOrigin.STAFF)
+            .anyMatch(item -> item.getKitchenStatus() != KitchenItemStatus.ENTREGADO)) {
+            throw new IllegalArgumentException("Entrega todos los pedidos de cocina antes de registrar el pago");
         }
 
         order.close();
@@ -193,6 +313,16 @@ public class OrderService {
             throw new IllegalArgumentException("El pedido ya fue cerrado");
         }
         return order;
+    }
+
+    private void ensureSingleBatchStatus(List<OrderItem> items) {
+        if (items.isEmpty()) {
+            throw new IllegalArgumentException("La comanda no tiene productos");
+        }
+        KitchenItemStatus status = items.get(0).getKitchenStatus();
+        if (items.stream().anyMatch(item -> item.getKitchenStatus() != status)) {
+            throw new IllegalStateException("La comanda contiene estados de cocina inconsistentes");
+        }
     }
 
     private User currentUser() {
@@ -290,4 +420,15 @@ public class OrderService {
         long facturas,
         List<InvoiceDetail> invoices
     ) {}
+
+    public record KitchenTicketView(
+        String batchId,
+        Long orderId,
+        Integer tableNumber,
+        KitchenItemStatus status,
+        LocalDateTime submittedAt,
+        List<KitchenTicketItemView> items
+    ) {}
+
+    public record KitchenTicketItemView(String name, Integer quantity, String removedIngredients) {}
 }
